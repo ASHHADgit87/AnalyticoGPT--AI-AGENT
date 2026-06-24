@@ -22,7 +22,7 @@ from adk.agent_router import AgentRouter
 from adk.workflows import ExecutionPipelineWorkflow
 
 def run_headless_orchestration_pipeline(input_csv_path: str):
-    print("🚀 Initializing AnalyticoGPT Core Subsystem Infrastructure Engine...")
+    print("Initializing AnalyticoGPT Core Subsystem Infrastructure Engine...")
     
     raw_df = read_and_validate_csv(input_csv_path)
     cleaned_df = standardize_column_names(raw_df)
@@ -31,7 +31,7 @@ def run_headless_orchestration_pipeline(input_csv_path: str):
     clean_csv_path = "data/cleaned/headless_sync_dataset.csv"
     os.makedirs("data/cleaned", exist_ok=True)
     cleaned_df.to_csv(clean_csv_path, index=False)
-    print(f"📊 Dataset standardization executed successfully -> Saved: {clean_csv_path}")
+    print(f"Dataset standardization executed successfully -> Saved: {clean_csv_path}")
     
     stats = compute_descriptive_stats(cleaned_df)
     corr_matrix = generate_correlation_matrix(cleaned_df)
@@ -40,7 +40,7 @@ def run_headless_orchestration_pipeline(input_csv_path: str):
     top_performers = extract_top_performers(cleaned_df, metric_col=target_metric, top_n=3)
     
     heatmap_path = generate_correlation_heatmap(corr_matrix)
-    print(f"📈 Analytics Visualization Core Synced. Exported: {heatmap_path}")
+    print(f"Analytics Visualization Core Synced. Exported: {heatmap_path}")
     
     feature_col = "Hours_Studied" if "Hours_Studied" in cleaned_df.columns else cleaned_df.select_dtypes(include=['number']).columns[-1]
     forecast_results = compute_linear_extrapolation(cleaned_df, x_col=feature_col, y_col=target_metric, steps=5)
@@ -57,7 +57,7 @@ def run_headless_orchestration_pipeline(input_csv_path: str):
     prompt = f"Synthesize structural execution data overview notes for the board of directors based on this running runtime metric block:\n{statistical_context_dump}"
     
     narrative_summary = fetch_gemini_structural_completion(prompt, system_instruction)
-    print("\n🧠 Executive AI Assessment Delivered:")
+    print("\nExecutive AI Assessment Delivered:")
     print(narrative_summary)
     
     pdf_out = "outputs/reports/executive_pipeline_run_summary.pdf"
@@ -67,8 +67,8 @@ def run_headless_orchestration_pipeline(input_csv_path: str):
         summary=narrative_summary,
         records=top_performers
     )
-    print(f"📋 Generated Hardcopy PDF Master Report Record Document -> {pdf_out}")
-    print("✨ Fully synchronized pipeline operations finished without exceptions.")
+    print(f"Generated Hardcopy PDF Master Report Record Document -> {pdf_out}")
+    print("Fully synchronized pipeline operations finished without exceptions.")
 
 if __name__ == "__main__":
     sample_data_path = "Sample.csv"
@@ -81,6 +81,6 @@ if __name__ == "__main__":
         })
         os.makedirs(os.path.dirname(sample_data_path) if os.path.dirname(sample_data_path) else ".", exist_ok=True)
         dummy_df.to_csv(sample_data_path, index=False)
-        print(f"⚠️ Initial workspace configuration placeholder generated at {sample_data_path}")
+        print(f" Initial workspace configuration placeholder generated at {sample_data_path}")
         
     run_headless_orchestration_pipeline(sample_data_path)
