@@ -72,8 +72,38 @@ from ui.charts_page import render_charts_layout
 from ui.insights_page import render_insights_layout
 from ui.reports_page import render_reports_layout
 
+st.markdown(
+    """
+    <style>
+        #MainMenu {visibility: hidden;}
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+theme_choice = st.sidebar.radio("Theme", ["System", "Dark", "Light"], index=1)
+
+header_color = "#6366f1"
+if theme_choice == "Light":
+    header_color = "#6b21a8"
+
+    st.markdown(
+        f"""
+        <style>
+            html, body, [data-testid="stAppViewContainer"] {{ background-color: #ffffff !important; color: #4c1d95 !important; }}
+            [data-testid="stSidebar"] {{ background-color: #ffffff !important; color: #4c1d95 !important; border-right: 1px solid #e5e7eb !important; }}
+            .metric-card {{ background: rgba(255,255,255,0.9); border-color: #e5e7eb; }}
+            .metric-card h3 {{ color: #6b21a8 !important; }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 st.sidebar.markdown(
-    '<div style="text-align: center;"><h2 style="color:#6366f1;font-weight:700;margin-bottom:0;">ANALYTICO GPT</h2><p style="color:#6b7280;font-size:0.8rem;margin-top:0;">MULTI-AGENT CORE OPERATIONAL FRAMEWORK</p></div>',
+    f'<div style="text-align: center;"><h2 style="color:{header_color};font-weight:700;margin-bottom:0;">ANALYTICO GPT</h2><p style="color:#6b7280;font-size:0.8rem;margin-top:0;">MULTI-AGENT CORE OPERATIONAL FRAMEWORK</p></div>',
     unsafe_allow_html=True,
 )
 st.sidebar.markdown("---")
@@ -88,6 +118,14 @@ navigation_option = st.sidebar.radio(
         "Export Document Center",
     ],
 )
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Tools**")
+autorun = st.sidebar.checkbox("Auto Re-run", value=True)
+if st.sidebar.button("Rerun now"):
+    st.experimental_rerun()
+if st.sidebar.button("Print page"):
+    st.markdown("<script>window.print()</script>", unsafe_allow_html=True)
 
 if navigation_option == "Workspace Operations Hub":
     render_dashboard_layout()
