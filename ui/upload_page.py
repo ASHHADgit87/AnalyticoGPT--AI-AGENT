@@ -1,5 +1,7 @@
 import streamlit as st
 from services.pipeline_service import PipelineService
+import os
+import shutil
 
 
 def render_upload_layout():
@@ -7,6 +9,19 @@ def render_upload_layout():
         '<div class="main-header">⚡ DATA INGESTION ENGINE</div>',
         unsafe_allow_html=True,
     )
+
+    if st.button("Clear saved outputs (charts & reports)"):
+        for d in ["outputs/charts", "outputs/reports", "data/cleaned"]:
+            if os.path.exists(d):
+                try:
+                    shutil.rmtree(d)
+                except Exception:
+                    pass
+        os.makedirs("outputs/charts", exist_ok=True)
+        os.makedirs("outputs/reports", exist_ok=True)
+        os.makedirs("data/cleaned", exist_ok=True)
+        st.session_state.pop("pipeline_result", None)
+        st.success("Cleared saved outputs and session results.")
     uploaded_file = st.file_uploader("Upload Target Tabular Dataset", type=["csv"])
 
     if uploaded_file is not None:
