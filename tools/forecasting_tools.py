@@ -10,20 +10,21 @@ def compute_linear_extrapolation(
     y_raw = df[y_col].dropna().values
 
     if len(x_raw) < 2:
-        return {"coefficient_slope": 0.0, "y_intercept": 0.0, "predictions": []}
+        return {
+            "coefficient_slope": 0.0,
+            "y_intercept": 0.0,
+            "predictions": pd.DataFrame(columns=[x_col, y_col]),
+        }
 
     slope, intercept = np.polyfit(x_raw, y_raw, 1)
     max_x = x_raw.max()
+    step_size = (x_raw.max() - x_raw.min()) / (len(x_raw) - 1)
 
-    future_x = np.linspace(max_x, max_x + (max_x * 0.4), steps)
-    future_y = (slope * future_x) + intercept
-
-    predictions = []
-    for fx, fy in zip(future_x, future_y):
-        predictions.append({x_col: float(fx), f"predicted_{y_col}": float(fy)})
+    future_x = [max_x + step_size * (i + 1) for i in range(steps)]
+    future_y = [slope * xi + intercept for xi in future_x]
 
     return {
         "coefficient_slope": float(slope),
         "y_intercept": float(intercept),
-        "predictions": predictions,
+        "predictions": pd.DataFrame({x_col: future_x, y_col: future_y}),
     }

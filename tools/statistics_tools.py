@@ -27,8 +27,11 @@ def generate_correlation_matrix(df: pd.DataFrame) -> Dict[str, Dict[str, float]]
 
 def extract_top_performers(
     df: pd.DataFrame, metric_col: str, top_n: int = 3
-) -> List[Dict[str, Any]]:
+) -> pd.DataFrame:
     if metric_col not in df.columns:
-        return []
-    sorted_df = df.sort_values(by=metric_col, ascending=False).head(top_n)
-    return sorted_df.to_dict(orient="records")
+        return pd.DataFrame()
+    return (
+        df.sort_values(by=metric_col, ascending=False)
+        .head(top_n)
+        .reset_index(drop=True)
+    )
