@@ -1,0 +1,6 @@
+pandas
+matplotlib
+seaborn
+python-dotenv
+google-generativeai
+google-adk
