@@ -1,3 +1,10 @@
+.env
 __pycache__/
 *.pyc
-.env
+.pytest_cache/
+data/uploads/*
+data/cleaned/*
+outputs/charts/*
+outputs/reports/*
+outputs/forecasts/*
+.streamlit/
