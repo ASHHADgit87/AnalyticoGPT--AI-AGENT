@@ -5,8 +5,8 @@ from tools.forecasting_tools import compute_linear_extrapolation
 @pytest.fixture
 def series_dataframe():
     return pd.DataFrame({
-        "Hours_Studied":,
-        "Score":
+        "Hours_Studied": [5, 8, 10, 12],
+        "Score": [70, 80, 85, 90]
     })
 
 def test_compute_linear_extrapolation(series_dataframe):

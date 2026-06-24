@@ -74,9 +74,9 @@ if __name__ == "__main__":
     sample_data_path = "Sample.csv"
     if not os.path.exists(sample_data_path):
         dummy_df = pd.DataFrame({
-            "Age":,
-            "Score":,
-            "Hours_Studied":,
+            "Age": [20, 22, 21, 23, 22, 24, 21],
+            "Score": [88, 95, 90, 85, 92, 87, 93],
+            "Hours_Studied": [5, 10, 8, 6, 9, 7, 11],
             "Name": ["Hina", "Ahmed", "Zain", "Usman", "Hina", "Ali", "Ayesha"]
         })
         os.makedirs(os.path.dirname(sample_data_path) if os.path.dirname(sample_data_path) else ".", exist_ok=True)

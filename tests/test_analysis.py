@@ -5,9 +5,9 @@ from tools.statistics_tools import compute_descriptive_stats, generate_correlati
 @pytest.fixture
 def clean_dataframe():
     return pd.DataFrame({
-        "Age":,
-        "Score":,
-        "Hours_Studied":
+        "Age": [25, 30, 22, 28],
+        "Score": [95.0, 82.0, 78.0, 91.0],
+        "Hours_Studied": [5.0, 10.0, 8.0, 12.0]
     })
 
 def test_compute_descriptive_stats(clean_dataframe):
