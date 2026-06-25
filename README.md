@@ -44,24 +44,19 @@ AnalyticoGPT follows the **Software as a Service (SaaS)** model by providing cen
 ### 📊 Data Pipeline
 - CSV upload and validation  
 - Automatic data cleaning and standardization  
-- Numeric default-filling and null handling  
-- Dataset profiling with metadata extraction  
+
 
 ### 🧠 AI Agent Orchestration
 - Custom `root_agent` orchestrates end-to-end analysis workflow  
-- Dedicated agents for dataset detection, cleaning, analysis, visualization, forecasting, insights, and reporting  
-- Google Gemini / GenAI integration for executive narrative generation  
+
 
 ### 📈 Analytics & Visualization
 - Descriptive statistics and correlation matrix generation  
-- Top performer extraction  
 - Heatmap and trend chart export  
-- Linear forecasting and projection output  
+
 
 ### 📄 Reporting
 - Structured PDF report generation with ReportLab  
-- Executive summary, top metrics, and asset export  
-- Downloadable report asset from the UI  
 
 ---
 
@@ -73,8 +68,7 @@ AnalyticoGPT follows the **Software as a Service (SaaS)** model by providing cen
 - **Data:** Pandas, NumPy  
 - **Visualization:** Matplotlib, Seaborn  
 - **PDF:** ReportLab  
-- **Schema:** Pydantic  
-- **Config:** dotenv  
+
 
 ---
 
