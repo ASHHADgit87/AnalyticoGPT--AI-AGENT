@@ -148,9 +148,42 @@ class PipelineService:
         )
         summary.append(f"* Top performers loaded: {len(top_performers)} rows")
 
+        stats_summary = "\n".join(
+            [
+                f"- {col}: mean={v['mean']:.2f}, min={v['min_value']:.2f}, max={v['max_value']:.2f}, std={v['std_dev']:.2f}"
+                for col, v in descriptive_stats.items()
+            ]
+        )
+
+        top_corr_pairs = []
+        seen = set()
+        for col_a, row in correlation_matrix.items():
+            for col_b, val in row.items():
+                if col_a != col_b and (col_b, col_a) not in seen:
+                    top_corr_pairs.append((col_a, col_b, val))
+                    seen.add((col_a, col_b))
+        top_corr_pairs.sort(key=lambda x: abs(x[2]), reverse=True)
+        corr_summary = "\n".join(
+            [f"- {a} vs {b}: r={v:.3f}" for a, b, v in top_corr_pairs[:6]]
+        )
+
+        top_perf_summary = "\n".join(
+            [
+                ", ".join([f"{k}={val}" for k, val in row.items()])
+                for row in top_performers[:3]
+            ]
+        )
+
         prompt = (
-            "Based on the cleaned dataset, descriptive statistics, and correlation matrix, "
-            "write a concise analytical summary and highlight the most important patterns."
+            f"You are analyzing a real dataset. Here is the actual data:\n\n"
+            f"**Metric column:** {metric_column}\n"
+            f"**Feature column:** {feature_column}\n\n"
+            f"**Descriptive Statistics:**\n{stats_summary}\n\n"
+            f"**Top Correlations:**\n{corr_summary}\n\n"
+            f"**Top Performers (sample rows):**\n{top_perf_summary}\n\n"
+            f"Write a professional, specific, data-driven analytical narrative (3-5 paragraphs) "
+            f"using the actual variable names and numbers above. Do not use placeholder brackets. "
+            f"Highlight key patterns, strongest correlations, outliers, and actionable insights."
         )
         if not ADKConfig.API_KEY:
             summary.append(
