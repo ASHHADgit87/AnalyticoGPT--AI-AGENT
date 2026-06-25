@@ -4,6 +4,29 @@
 
 ---
 
+## 🤖 Google ADK Integration
+
+AnalyticoGPT uses Google Agent Development Kit (ADK) to build and orchestrate a multi-agent analytics workflow.
+
+### ADK Usage
+- Agent creation using `google.adk.Agent`
+- Centralized agent management through `AgentRegistry`
+- Task routing via `AgentRouter`
+- Workflow orchestration using `google.adk.Workflow`
+- Gemini-powered reasoning and report generation
+- Sequential agent pipeline for end-to-end analytics
+
+### ADK Workflow
+Dataset Detection → Data Cleaning → Analysis → Visualization → Forecasting → Insights → Report Generation
+
+### ADK Components
+- `ADKConfig` – Gemini model and API configuration
+- `AgentRegistry` – Agent registration and retrieval
+- `AgentRouter` – Task delegation
+- `AnalysisWorkflowBuilder` – Multi-agent workflow construction
+
+---
+
 ## 🏛️ Architecture
 
 **AnalyticoGPT follows a modular multi-tier architecture**, providing a clean separation of concerns for scalability, maintainability, and security.
@@ -39,16 +62,6 @@ AnalyticoGPT follows the **Software as a Service (SaaS)** model by providing cen
 - Structured PDF report generation with ReportLab  
 - Executive summary, top metrics, and asset export  
 - Downloadable report asset from the UI  
-
----
-
-## 🔑 Key Functionality
-
-- Custom AI agent orchestration   
-- Tool modules for CSV handling, cleaning, statistics, forecasting, visualization, and PDF export  
-- Streamlit UI pages 
-- Headless pipeline support  
-
 
 ---
 
