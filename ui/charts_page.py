@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import os
 
 
@@ -7,6 +8,70 @@ def render_charts_layout():
         '<div class="main-header"> PIPELINE GRAPHICAL INTERFACE</div>',
         unsafe_allow_html=True,
     )
+
+    charts_canvas = """
+    <div id="charts-container" style="width:100%;height:200px;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#0d0e15 0%,#1a1c29 100%);"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const container = document.getElementById('charts-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, container.clientWidth/container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        const barGroup = new THREE.Group();
+        const heights = [1.2, 2.4, 1.8, 3.2, 2.0, 2.8, 1.5, 3.6, 2.2, 1.9];
+        const colors  = [0x6366f1, 0xa855f7, 0xec4899, 0x6366f1, 0xa855f7, 0xec4899, 0x6366f1, 0xa855f7, 0xec4899, 0x6366f1];
+
+        heights.forEach((h, i) => {
+            const geo = new THREE.BoxGeometry(0.35, h, 0.35);
+            const mat = new THREE.MeshPhongMaterial({ color: colors[i], emissive: colors[i], emissiveIntensity: 0.3, transparent: true, opacity: 0.85 });
+            const bar = new THREE.Mesh(geo, mat);
+            bar.position.set(i * 0.7 - 3.15, h / 2 - 2, 0);
+            barGroup.add(bar);
+
+            const capGeo = new THREE.SphereGeometry(0.2, 8, 8);
+            const capMat = new THREE.MeshPhongMaterial({ color: colors[i], emissive: colors[i], emissiveIntensity: 0.8 });
+            const cap = new THREE.Mesh(capGeo, capMat);
+            cap.position.set(i * 0.7 - 3.15, h - 2 + 0.1, 0);
+            barGroup.add(cap);
+        });
+        scene.add(barGroup);
+
+        const gridHelper = new THREE.GridHelper(10, 10, 0x1f293d, 0x1f293d);
+        gridHelper.position.y = -2;
+        scene.add(gridHelper);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const pl = new THREE.PointLight(0xa855f7, 4, 30); pl.position.set(0, 5, 5); scene.add(pl);
+        const pl2 = new THREE.PointLight(0xec4899, 3, 20); pl2.position.set(-5, 3, 3); scene.add(pl2);
+
+        camera.position.set(0, 1.5, 7);
+        camera.lookAt(0, 0, 0);
+
+        let isHovered = false;
+        container.addEventListener('mouseenter', () => isHovered = true);
+        container.addEventListener('mouseleave', () => isHovered = false);
+
+        let t = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            t += 0.01;
+            const s = isHovered ? 6 : 1;
+            barGroup.rotation.y = Math.sin(t * 0.4 * s) * 0.3;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth/container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+    </script>
+    """
+    components.html(charts_canvas, height=200)
 
     pipeline_result = st.session_state.get("pipeline_result")
     if pipeline_result:
