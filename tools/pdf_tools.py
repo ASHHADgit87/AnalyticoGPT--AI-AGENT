@@ -1,58 +1,233 @@
 import os
+import re
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+    HRFlowable,
+    KeepTogether,
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+
+
+def _markdown_to_paragraphs(text: str, styles: dict) -> list:
+    """Convert basic markdown text into ReportLab Paragraph objects."""
+    flowables = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            flowables.append(Spacer(1, 6))
+            continue
+
+        if line.startswith("### "):
+            content = line[4:].strip()
+            flowables.append(Spacer(1, 10))
+            flowables.append(Paragraph(content, styles["section_header"]))
+            flowables.append(
+                HRFlowable(
+                    width="100%",
+                    thickness=0.5,
+                    color=colors.HexColor("#6366f1"),
+                    spaceAfter=6,
+                )
+            )
+            continue
+
+        if line.startswith("## "):
+            content = line[3:].strip()
+            flowables.append(Spacer(1, 10))
+            flowables.append(Paragraph(content, styles["h2"]))
+            continue
+
+        if line.startswith("* ") or line.startswith("- "):
+            content = line[2:].strip()
+            content = _inline_markdown(content)
+            flowables.append(Paragraph(f"• {content}", styles["bullet"]))
+            continue
+
+        content = _inline_markdown(line)
+        flowables.append(Paragraph(content, styles["body"]))
+
+    return flowables
+
+
+def _inline_markdown(text: str) -> str:
+    """Convert inline **bold** and *italic* to ReportLab XML tags."""
+
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+
+    text = re.sub(r"\*(.+?)\*", r"<i>\1</i>", text)
+
+    text = re.sub(r"`(.+?)`", r'<font name="Courier">\1</font>', text)
+    return text
 
 
 def compile_structural_pdf(
     target_path: str, title: str, summary: str, records: list
 ) -> str:
     os.makedirs(os.path.dirname(target_path), exist_ok=True)
-    doc = SimpleDocTemplate(target_path, pagesize=letter)
-    styles = getSampleStyleSheet()
 
-    custom_header = ParagraphStyle(
-        "DocTitle",
-        parent=styles["Heading1"],
-        fontSize=22,
-        textColor=colors.HexColor("#6366f1"),
-        spaceAfter=15,
+    doc = SimpleDocTemplate(
+        target_path,
+        pagesize=letter,
+        leftMargin=0.75 * inch,
+        rightMargin=0.75 * inch,
+        topMargin=0.75 * inch,
+        bottomMargin=0.75 * inch,
     )
-    story = [Paragraph(title, custom_header), Spacer(1, 10)]
-    story.append(Paragraph(summary, styles["Normal"]))
-    story.append(Spacer(1, 15))
+
+    base_styles = getSampleStyleSheet()
+
+    custom_styles = {
+        "title": ParagraphStyle(
+            "DocTitle",
+            parent=base_styles["Normal"],
+            fontSize=24,
+            fontName="Helvetica-Bold",
+            textColor=colors.HexColor("#6366f1"),
+            spaceAfter=4,
+            leading=30,
+        ),
+        "subtitle": ParagraphStyle(
+            "SubTitle",
+            parent=base_styles["Normal"],
+            fontSize=10,
+            fontName="Helvetica",
+            textColor=colors.HexColor("#9ca3af"),
+            spaceAfter=20,
+        ),
+        "section_header": ParagraphStyle(
+            "SectionHeader",
+            parent=base_styles["Normal"],
+            fontSize=13,
+            fontName="Helvetica-Bold",
+            textColor=colors.HexColor("#a855f7"),
+            spaceBefore=14,
+            spaceAfter=4,
+        ),
+        "h2": ParagraphStyle(
+            "H2",
+            parent=base_styles["Normal"],
+            fontSize=11,
+            fontName="Helvetica-Bold",
+            textColor=colors.HexColor("#6366f1"),
+            spaceBefore=10,
+            spaceAfter=4,
+        ),
+        "body": ParagraphStyle(
+            "Body",
+            parent=base_styles["Normal"],
+            fontSize=9,
+            fontName="Helvetica",
+            textColor=colors.HexColor("#1f2937"),
+            leading=14,
+            spaceAfter=5,
+        ),
+        "bullet": ParagraphStyle(
+            "Bullet",
+            parent=base_styles["Normal"],
+            fontSize=9,
+            fontName="Helvetica",
+            textColor=colors.HexColor("#374151"),
+            leading=13,
+            leftIndent=14,
+            spaceAfter=3,
+        ),
+        "table_header": ParagraphStyle(
+            "TableHeader",
+            parent=base_styles["Normal"],
+            fontSize=8,
+            fontName="Helvetica-Bold",
+            textColor=colors.white,
+        ),
+        "table_cell": ParagraphStyle(
+            "TableCell",
+            parent=base_styles["Normal"],
+            fontSize=7.5,
+            fontName="Helvetica",
+            textColor=colors.HexColor("#1f2937"),
+        ),
+    }
+
+    story = []
+
+    story.append(Paragraph(title, custom_styles["title"]))
+    story.append(
+        Paragraph(
+            "Generated by AnalyticoGPT · Data Analysis Pipeline",
+            custom_styles["subtitle"],
+        )
+    )
+    story.append(
+        HRFlowable(
+            width="100%", thickness=1.5, color=colors.HexColor("#6366f1"), spaceAfter=16
+        )
+    )
+
+    story.extend(_markdown_to_paragraphs(summary, custom_styles))
+    story.append(Spacer(1, 18))
 
     if records and len(records) > 0:
-        if isinstance(records, dict):
-            headers = list(records.keys())
-            table_data = [headers]
-            table_data.append([str(records[h]) for h in headers])
-        elif isinstance(records, list) and isinstance(records[0], dict):
-            headers = list(records[0].keys())
-            table_data = [headers]
-            for item in records:
-                table_data.append([str(item.get(h, "")) for h in headers])
-        else:
-            headers = []
-            table_data = []
+        story.append(Paragraph("Top Performers", custom_styles["section_header"]))
+        story.append(
+            HRFlowable(
+                width="100%",
+                thickness=0.5,
+                color=colors.HexColor("#6366f1"),
+                spaceAfter=8,
+            )
+        )
 
-        if table_data:
-            t = Table(table_data)
+        if isinstance(records, list) and isinstance(records[0], dict):
+            headers = list(records[0].keys())
+
+            display_headers = [h[:18] for h in headers]
+
+            table_data = [
+                [Paragraph(h, custom_styles["table_header"]) for h in display_headers]
+            ]
+            for item in records:
+                row = []
+                for h in headers:
+                    val = str(item.get(h, ""))
+
+                    val = val[:22] if len(val) > 22 else val
+                    row.append(Paragraph(val, custom_styles["table_cell"]))
+                table_data.append(row)
+
+            col_count = len(headers)
+            available_width = letter[0] - 1.5 * inch
+            col_width = available_width / col_count
+
+            t = Table(table_data, colWidths=[col_width] * col_count, repeatRows=1)
             t.setStyle(
                 TableStyle(
                     [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f293d")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e1b4b")),
+                        (
+                            "ROWBACKGROUNDS",
+                            (0, 1),
+                            (-1, -1),
+                            [colors.HexColor("#f9fafb"), colors.HexColor("#f3f4f6")],
+                        ),
                         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#374151")),
-                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 9),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                        ("TOPPADDING", (0, 0), (-1, -1), 5),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d1d5db")),
+                        ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.HexColor("#6366f1")),
+                        ("ROUNDEDCORNERS", [4]),
                     ]
                 )
             )
-            story.append(t)
+            story.append(KeepTogether(t))
 
     doc.build(story)
     return target_path
