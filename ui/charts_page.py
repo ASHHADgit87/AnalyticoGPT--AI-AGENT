@@ -4,7 +4,7 @@ import os
 
 def render_charts_layout():
     st.markdown(
-        '<div class="main-header">📊 PIPELINE GRAPHICAL INTERFACES</div>',
+        '<div class="main-header"> PIPELINE GRAPHICAL INTERFACES</div>',
         unsafe_allow_html=True,
     )
 
