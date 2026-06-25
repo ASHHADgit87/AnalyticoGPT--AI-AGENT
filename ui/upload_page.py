@@ -6,7 +6,7 @@ import shutil
 
 def render_upload_layout():
     st.markdown(
-        '<div class="main-header">⚡ DATA INGESTION ENGINE</div>',
+        '<div class="main-header"> DATA INGESTION ENGINE</div>',
         unsafe_allow_html=True,
     )
 
