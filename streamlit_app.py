@@ -64,7 +64,18 @@ st.markdown(
     }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
-    header { display: none !important; }
+    header { visibility: hidden !important; }
+    [data-testid="stHeader"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+    [data-testid="stSidebarCollapseButton"] { display: none !important; }
+
+    [data-testid="stSidebar"][aria-expanded="false"] {
+        margin-left: 0 !important;
+        transform: none !important;
+        display: flex !important;
+        min-width: 244px !important;
+        width: 244px !important;
+    }
 
     /* ── SIDEBAR NAV ── */
     .nav-label {
@@ -135,25 +146,23 @@ st.sidebar.image("public/assets/logo1.svg", use_container_width=True)
 st.sidebar.markdown("---")
 
 pages = [
-    ("Workspace Operations Hub", "⬡", "Overview & metrics"),
-    ("Data Ingestion Engine", "⬆", "Upload & clean data"),
-    ("Graphical Analytics", "◈", "Charts & trends"),
-    ("AI Deep Insights", "◎", "LLM-powered analysis"),
-    ("Export Document Center", "⬇", "Reports & exports"),
+    ("Workspace Operations Hub", "", "Overview & metrics"),
+    ("Ingest Data", "", "Upload & clean data"),
+    ("Graphical Analytics", "", "Charts & trends"),
+    ("AI Deep Insights", "", "LLM-powered analysis"),
+    ("Analysis Report", "", "Reports & exports"),
 ]
 
 if "nav_page" not in st.session_state:
     st.session_state.nav_page = pages[0][0]
 
-st.sidebar.markdown(
-    '<p class="nav-label">Management Controls</p>', unsafe_allow_html=True
-)
+st.sidebar.markdown('<p class="nav-label">Management</p>', unsafe_allow_html=True)
 
 for page_name, icon, subtitle in pages:
     is_active = st.session_state.nav_page == page_name
     active_cls = "active" if is_active else ""
     clicked = st.sidebar.button(
-        f"{icon}  {page_name}",
+        page_name,
         key=f"nav_{page_name}",
         use_container_width=True,
     )
@@ -200,11 +209,11 @@ navigation_option = st.session_state.nav_page
 
 if navigation_option == "Workspace Operations Hub":
     render_dashboard_layout()
-elif navigation_option == "Data Ingestion Engine":
+elif navigation_option == "Ingest Data":
     render_upload_layout()
 elif navigation_option == "Graphical Analytics":
     render_charts_layout()
 elif navigation_option == "AI Deep Insights":
     render_insights_layout()
-elif navigation_option == "Export Document Center":
+elif navigation_option == "Analysis Report":
     render_reports_layout()
