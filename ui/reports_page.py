@@ -4,7 +4,7 @@ import os
 
 def render_reports_layout():
     st.markdown(
-        '<div class="main-header">📋 SYSTEM REVENUE & EXECUTIVE REPORT CORES</div>',
+        '<div class="main-header"> SYSTEM REVENUE & EXECUTIVE REPORT CORES</div>',
         unsafe_allow_html=True,
     )
 
@@ -12,7 +12,7 @@ def render_reports_layout():
     if pipeline_result and pipeline_result.get("report_path"):
         rep = pipeline_result["report_path"]
         if os.path.exists(rep):
-            st.write(f"📄 Generated Asset Reference: {os.path.basename(rep)}")
+            st.write(f" Generated Asset Reference: {os.path.basename(rep)}")
             with open(rep, "rb") as pdf_file:
                 st.download_button(
                     label="Download Asset Report PDF",
