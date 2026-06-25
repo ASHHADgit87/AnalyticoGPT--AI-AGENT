@@ -43,6 +43,49 @@ def render_charts_layout():
         gridHelper.position.y = -2;
         scene.add(gridHelper);
 
+        const particleCount = 250;
+        const particleGeo = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const colorsArray = new Float32Array(particleCount * 3);
+        const velocities = [];
+
+        const palette = [
+            new THREE.Color(0x6366f1),
+            new THREE.Color(0xec4899),
+            new THREE.Color(0xa855f7)
+        ];
+
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 45;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 18;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 12;
+
+            velocities.push({
+                x: (Math.random() - 0.5) * 0.02,
+                y: (Math.random() - 0.5) * 0.02,
+                z: (Math.random() - 0.5) * 0.02
+            });
+
+            const pickedColor = palette[Math.floor(Math.random() * palette.length)];
+            colorsArray[i * 3] = pickedColor.r;
+            colorsArray[i * 3 + 1] = pickedColor.g;
+            colorsArray[i * 3 + 2] = pickedColor.b;
+        }
+
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        particleGeo.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+
+        const pMaterial = new THREE.PointsMaterial({
+            size: 0.16,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particles = new THREE.Points(particleGeo, pMaterial);
+        scene.add(particles);
+
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         const pl = new THREE.PointLight(0xa855f7, 4, 30); pl.position.set(0, 5, 5); scene.add(pl);
         const pl2 = new THREE.PointLight(0xec4899, 3, 20); pl2.position.set(-5, 3, 3); scene.add(pl2);
@@ -59,7 +102,21 @@ def render_charts_layout():
             requestAnimationFrame(animate);
             t += 0.01;
             const s = isHovered ? 6 : 1;
-            barGroup.rotation.y = Math.sin(t * 0.4 * s) * 0.3;
+            
+            barGroup.rotation.y = Math.sin(t * 1.2 * s) * 0.6;
+            
+            const positionsArray = particles.geometry.attributes.position.array;
+            for (let i = 0; i < particleCount; i++) {
+                positionsArray[i * 3] += velocities[i].x * s;
+                positionsArray[i * 3 + 1] += velocities[i].y * s;
+                positionsArray[i * 3 + 2] += velocities[i].z * s;
+
+                if (Math.abs(positionsArray[i * 3]) > 22) velocities[i].x *= -1;
+                if (Math.abs(positionsArray[i * 3 + 1]) > 9) velocities[i].y *= -1;
+                if (Math.abs(positionsArray[i * 3 + 2]) > 6) velocities[i].z *= -1;
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+            
             renderer.render(scene, camera);
         }
         animate();
