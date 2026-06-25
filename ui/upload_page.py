@@ -17,7 +17,8 @@ def render_upload_layout():
     <script>
         const container = document.getElementById('ingest-container');
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(60, container.clientWidth/container.clientHeight, 0.1, 1000);
+        
+        const camera = new THREE.PerspectiveCamera(50, container.clientWidth/container.clientHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         container.appendChild(renderer.domElement);
@@ -47,13 +48,68 @@ def render_upload_layout():
                 helixGroup.add(bridge);
             }
         }
+        
+        const spacing = 7.0;
+
+        helixGroup.position.x = 0;
         scene.add(helixGroup);
+
+        const leftHelix = helixGroup.clone();
+        leftHelix.position.x = -spacing-10;
+        scene.add(leftHelix);
+
+        const rightHelix = helixGroup.clone();
+        rightHelix.position.x = spacing+10;
+        scene.add(rightHelix);
+
+        const particleCount = 250;
+        const pGeometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const colors = new Float32Array(particleCount * 3);
+        const velocities = [];
+
+        const palette = [
+            new THREE.Color(0x6366f1), 
+            new THREE.Color(0xec4899), 
+            new THREE.Color(0xa855f7)  
+        ];
+
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 45;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 18;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 12;
+
+            velocities.push({
+                x: (Math.random() - 0.5) * 0.02,
+                y: (Math.random() - 0.5) * 0.02,
+                z: (Math.random() - 0.5) * 0.02
+            });
+
+            const pickedColor = palette[Math.floor(Math.random() * palette.length)];
+            colors[i * 3] = pickedColor.r;
+            colors[i * 3 + 1] = pickedColor.g;
+            colors[i * 3 + 2] = pickedColor.b;
+        }
+
+        pGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        pGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const pMaterial = new THREE.PointsMaterial({
+            size: 0.16,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particleSystem = new THREE.Points(pGeometry, pMaterial);
+        scene.add(particleSystem);
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.6));
         const pl = new THREE.PointLight(0x6366f1, 4, 30); pl.position.set(3, 3, 3); scene.add(pl);
         const pl2 = new THREE.PointLight(0xec4899, 3, 20); pl2.position.set(-3, -3, 3); scene.add(pl2);
 
-        camera.position.set(4, 0, 6);
+        camera.position.set(0, 0, 12.5);
         camera.lookAt(0, 0, 0);
 
         let isHovered = false;
@@ -64,6 +120,21 @@ def render_upload_layout():
             requestAnimationFrame(animate);
             const s = isHovered ? 6 : 1;
             helixGroup.rotation.y += 0.008 * s;
+            leftHelix.rotation.y += 0.008 * s;
+            rightHelix.rotation.y += 0.008 * s;
+            
+            const positionsArray = particleSystem.geometry.attributes.position.array;
+            for (let i = 0; i < particleCount; i++) {
+                positionsArray[i * 3] += velocities[i].x * s;
+                positionsArray[i * 3 + 1] += velocities[i].y * s;
+                positionsArray[i * 3 + 2] += velocities[i].z * s;
+
+                if (Math.abs(positionsArray[i * 3]) > 22) velocities[i].x *= -1;
+                if (Math.abs(positionsArray[i * 3 + 1]) > 9) velocities[i].y *= -1;
+                if (Math.abs(positionsArray[i * 3 + 2]) > 6) velocities[i].z *= -1;
+            }
+            particleSystem.geometry.attributes.position.needsUpdate = true;
+            
             renderer.render(scene, camera);
         }
         animate();
