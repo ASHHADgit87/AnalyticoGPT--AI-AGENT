@@ -78,12 +78,12 @@ def render_charts_layout():
         shown = False
         if pipeline_result.get("heatmap_path"):
             st.markdown("### Correlation Heatmap")
-            st.image(pipeline_result["heatmap_path"], use_column_width=True)
+            st.image(pipeline_result["heatmap_path"], width="stretch")
             shown = True
 
         if pipeline_result.get("trend_path"):
             st.markdown("### Trend Chart")
-            st.image(pipeline_result["trend_path"], use_column_width=True)
+            st.image(pipeline_result["trend_path"], width="stretch")
             shown = True
 
         if not shown:

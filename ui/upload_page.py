@@ -89,6 +89,7 @@ def render_upload_layout():
         os.makedirs("data/cleaned", exist_ok=True)
         st.session_state.pop("pipeline_result", None)
         st.success("Cleared saved outputs and session results.")
+
     uploaded_file = st.file_uploader("Upload Target Tabular Dataset", type=["csv"])
 
     if uploaded_file is not None:
@@ -104,34 +105,11 @@ def render_upload_layout():
 
             st.session_state["pipeline_result"] = result
             st.success(
-                f"Processed {uploaded_file.name} successfully through the full pipeline."
+                f" {uploaded_file.name} processed successfully! Visit **Graphical Analytics**, **AI Deep Insights**, and **Analysis Report** pages to explore your results."
             )
 
             st.markdown("### Dataset Summary")
             st.write(result["metadata"].dict())
 
-            if result["heatmap_path"]:
-                st.markdown("### Correlation Heatmap")
-                st.image(result["heatmap_path"], use_column_width=True)
-
-            if result["trend_path"]:
-                st.markdown("### Trend Chart")
-                st.image(result["trend_path"], use_column_width=True)
-
-            st.markdown("### Top Performers")
-            st.write(result["top_performers"])
-
-            st.markdown("### AI Narrative Insights")
-            st.markdown(result["insight_text"])
-
-            st.markdown("### Generated Report")
-            st.write(result["report_path"])
-            with open(result["report_path"], "rb") as pdf_file:
-                st.download_button(
-                    label="Download generated PDF report",
-                    data=pdf_file,
-                    file_name=result["report_path"].split("/")[-1],
-                    mime="application/pdf",
-                )
         except Exception as exc:
             st.error(f"Failed to process upload: {exc}")
