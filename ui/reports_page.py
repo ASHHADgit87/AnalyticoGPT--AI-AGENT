@@ -4,7 +4,7 @@ import os
 
 def render_reports_layout():
     st.markdown(
-        '<div class="main-header"> SYSTEM REVENUE & EXECUTIVE REPORT CORES</div>',
+        '<div class="main-header"> EXECUTIVE REPORT CORES</div>',
         unsafe_allow_html=True,
     )
 

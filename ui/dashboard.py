@@ -4,7 +4,7 @@ import streamlit.components.v1 as components
 
 def render_dashboard_layout():
     st.markdown(
-        '<div class="main-header"> ANALYTICOGPT ORCHESTRATION</div>',
+        '<div class="main-header"> AnalyticoGPT ORCHESTRATION</div>',
         unsafe_allow_html=True,
     )
 
