@@ -29,7 +29,7 @@ st.markdown(
         background: linear-gradient(90deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-top: -3rem;
+        margin-top: -4rem;
         margin-bottom: 2rem;
         letter-spacing: -0.05em;
     }
