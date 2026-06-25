@@ -43,12 +43,46 @@ def render_dashboard_layout():
         torus2.rotation.y = Math.PI / 4;
         scene.add(torus2);
 
-        const particleCount = 200;
+        const particleCount = 250;
         const particleGeo = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
-        for (let i = 0; i < particleCount * 3; i++) positions[i] = (Math.random() - 0.5) * 20;
+        const colors = new Float32Array(particleCount * 3);
+        const velocities = [];
+
+        const palette = [
+            new THREE.Color(0x6366f1),
+            new THREE.Color(0xec4899),
+            new THREE.Color(0xa855f7)
+        ];
+
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 45;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 18;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 12;
+
+            velocities.push({
+                x: (Math.random() - 0.5) * 0.02,
+                y: (Math.random() - 0.5) * 0.02,
+                z: (Math.random() - 0.5) * 0.02
+            });
+
+            const pickedColor = palette[Math.floor(Math.random() * palette.length)];
+            colors[i * 3] = pickedColor.r;
+            colors[i * 3 + 1] = pickedColor.g;
+            colors[i * 3 + 2] = pickedColor.b;
+        }
+
         particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        const particleMat = new THREE.PointsMaterial({ color: 0xa855f7, size: 0.05, transparent: true, opacity: 0.7 });
+        particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const particleMat = new THREE.PointsMaterial({
+            size: 0.16,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending
+        });
+
         const particles = new THREE.Points(particleGeo, particleMat);
         scene.add(particles);
 
@@ -68,13 +102,32 @@ def render_dashboard_layout():
             requestAnimationFrame(animate);
             t += 0.01;
             const s = isHovered ? 6 : 1;
+            
             core.rotation.x += 0.004 * s;
             core.rotation.y += 0.007 * s;
             shell.rotation.x -= 0.003 * s;
             shell.rotation.y -= 0.005 * s;
-            torus.rotation.z += 0.006 * s;
-            torus2.rotation.z -= 0.004 * s;
-            particles.rotation.y += 0.001 * s;
+            
+            torus.rotation.x += 0.003;
+            torus.rotation.y += 0.0025;
+            torus.rotation.z += 0.005;
+            
+            torus2.rotation.x -= 0.0025;
+            torus2.rotation.y += 0.003;
+            torus2.rotation.z -= 0.005;
+            
+            const positionsArray = particles.geometry.attributes.position.array;
+            for (let i = 0; i < particleCount; i++) {
+                positionsArray[i * 3] += velocities[i].x * s;
+                positionsArray[i * 3 + 1] += velocities[i].y * s;
+                positionsArray[i * 3 + 2] += velocities[i].z * s;
+
+                if (Math.abs(positionsArray[i * 3]) > 22) velocities[i].x *= -1;
+                if (Math.abs(positionsArray[i * 3 + 1]) > 9) velocities[i].y *= -1;
+                if (Math.abs(positionsArray[i * 3 + 2]) > 6) velocities[i].z *= -1;
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+            
             p1.position.x = Math.sin(t) * 6;
             p1.position.z = Math.cos(t) * 6;
             p2.position.x = Math.cos(t * 0.7) * 6;
