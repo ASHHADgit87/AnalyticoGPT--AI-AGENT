@@ -4,7 +4,7 @@ import streamlit.components.v1 as components
 
 def render_dashboard_layout():
     st.markdown(
-        '<div class="main-header">✨ ANALYTICOGPT ORCHESTRATION</div>',
+        '<div class="main-header"> ANALYTICOGPT ORCHESTRATION</div>',
         unsafe_allow_html=True,
     )
 
@@ -88,4 +88,7 @@ def render_dashboard_layout():
         )
 
     if not pipeline_result:
-        st.info("No dataset uploaded yet. Use the Data Ingestion Engine to upload and process a CSV.")
+        st.markdown("<div style='margin-top: 1.5rem;'></div>", unsafe_allow_html=True)
+        st.info(
+            "No dataset uploaded yet. Use the Data Ingestion Engine to upload and process a CSV."
+        )
