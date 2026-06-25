@@ -1,8 +1,8 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="AnalyticoGPT | Principal AI Agent Dashboard",
-    page_icon="✨",
+    page_title="AnalyticoGPT",
+    page_icon="public/assets/logo.svg",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -29,6 +29,7 @@ st.markdown(
         background: linear-gradient(90deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        margin-top: -3rem;
         margin-bottom: 2rem;
         letter-spacing: -0.05em;
     }
@@ -61,6 +62,64 @@ st.markdown(
         margin: 0.5rem 0 0 0;
         font-size: 0.9rem;
     }
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
+    header { display: none !important; }
+
+    /* ── SIDEBAR NAV ── */
+    .nav-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.15em;
+        color: #4b5563;
+        text-transform: uppercase;
+        padding: 0 0.25rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .nav-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 0.65rem 1rem;
+        margin-bottom: 0.3rem;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: #9ca3af;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: left;
+    }
+
+    .nav-btn:hover {
+        background: rgba(99, 102, 241, 0.08);
+        border-color: rgba(99, 102, 241, 0.25);
+        color: #e5e7eb;
+    }
+
+    .nav-btn.active {
+        background: linear-gradient(135deg, rgba(99,102,241,0.18) 0%, rgba(168,85,247,0.12) 100%);
+        border-color: rgba(99, 102, 241, 0.45);
+        color: #a5b4fc;
+        font-weight: 600;
+    }
+
+    .nav-btn .icon {
+        font-size: 1rem;
+        min-width: 1.25rem;
+        text-align: center;
+    }
+
+    .nav-divider {
+        height: 1px;
+        background: #1f293d;
+        margin: 1rem 0;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -72,22 +131,72 @@ from ui.charts_page import render_charts_layout
 from ui.insights_page import render_insights_layout
 from ui.reports_page import render_reports_layout
 
-st.sidebar.markdown(
-    '<div style="text-align: center;"><h2 style="color:#6366f1;font-weight:700;margin-bottom:0;">ANALYTICO GPT</h2><p style="color:#6b7280;font-size:0.8rem;margin-top:0;">MULTI-AGENT CORE OPERATIONAL FRAMEWORK</p></div>',
-    unsafe_allow_html=True,
-)
+st.sidebar.image("public/assets/logo1.svg", use_container_width=True)
 st.sidebar.markdown("---")
 
-navigation_option = st.sidebar.radio(
-    "MANAGEMENT CONTROLS",
-    [
-        "Workspace Operations Hub",
-        "Data Ingestion Engine",
-        "Graphical Analytics",
-        "AI Deep Insights",
-        "Export Document Center",
-    ],
+pages = [
+    ("Workspace Operations Hub", "⬡", "Overview & metrics"),
+    ("Data Ingestion Engine", "⬆", "Upload & clean data"),
+    ("Graphical Analytics", "◈", "Charts & trends"),
+    ("AI Deep Insights", "◎", "LLM-powered analysis"),
+    ("Export Document Center", "⬇", "Reports & exports"),
+]
+
+if "nav_page" not in st.session_state:
+    st.session_state.nav_page = pages[0][0]
+
+st.sidebar.markdown(
+    '<p class="nav-label">Management Controls</p>', unsafe_allow_html=True
 )
+
+for page_name, icon, subtitle in pages:
+    is_active = st.session_state.nav_page == page_name
+    active_cls = "active" if is_active else ""
+    clicked = st.sidebar.button(
+        f"{icon}  {page_name}",
+        key=f"nav_{page_name}",
+        use_container_width=True,
+    )
+    if clicked:
+        st.session_state.nav_page = page_name
+        st.rerun()
+
+
+st.sidebar.markdown(
+    f"""
+<style>
+div[data-testid="stSidebar"] button {{
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-radius: 10px !important;
+    color: #9ca3af !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    padding: 0.65rem 1rem !important;
+    margin-bottom: 0.3rem !important;
+    text-align: left !important;
+    transition: all 0.2s ease !important;
+}}
+div[data-testid="stSidebar"] button:hover {{
+    background: rgba(99, 102, 241, 0.08) !important;
+    border-color: rgba(99, 102, 241, 0.25) !important;
+    color: #e5e7eb !important;
+}}
+div[data-testid="stSidebar"] button[kind="secondary"]:nth-of-type({pages.index((st.session_state.nav_page, *[p[1:] for p in pages if p[0]==st.session_state.nav_page][0])) + 1}) {{
+    background: linear-gradient(135deg, rgba(99,102,241,0.18) 0%, rgba(168,85,247,0.12) 100%) !important;
+    border-color: rgba(99, 102, 241, 0.45) !important;
+    color: #a5b4fc !important;
+    font-weight: 600 !important;
+}}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+st.sidebar.markdown('<div class="nav-divider"></div>', unsafe_allow_html=True)
+
+navigation_option = st.session_state.nav_page
 
 if navigation_option == "Workspace Operations Hub":
     render_dashboard_layout()
