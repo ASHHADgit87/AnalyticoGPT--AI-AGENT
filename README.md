@@ -1,6 +1,6 @@
 # AnalyticoGPT-Agent
 
-**AnalyticoGPT** is an enterprise-grade AI-powered data analytics Agent built with **Python, Streamlit, Google ADK, and Gemini AI**. Users upload CSV datasets, and the platform automatically performs data ingestion, cleaning, statistical analysis, visualization, forecasting, AI-powered business insight generation, and executive PDF report creation through a multi-agent workflow.
+**AnalyticoGPT** is an enterprise-grade AI-Agent for data analytics built with **Python, Streamlit, Google ADK, and Gemini AI**. Users upload CSV datasets, and the platform automatically performs data ingestion, cleaning, statistical analysis, visualization, forecasting, AI-powered business insight generation, and executive PDF report creation through a multi-agent workflow.
 
 ---
 
