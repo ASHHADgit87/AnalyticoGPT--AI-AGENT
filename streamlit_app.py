@@ -61,11 +61,21 @@ st.markdown(
         box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
         backdrop-filter: blur(10px);
         transition: transform 0.3s ease, border-color 0.3s ease;
+        margin-bottom: 1rem;
     }}
     
     .metric-card:hover {{
         transform: translateY(-5px);
         border-color: #6366f1;
+    }}
+
+    @media (max-width: 700px) {{
+        .metric-card {{
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }}
     }}
     
     .metric-card h3 {{
