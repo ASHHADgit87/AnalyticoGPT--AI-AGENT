@@ -19,55 +19,89 @@ def render_insights_layout():
         renderer.setSize(container.clientWidth, container.clientHeight);
         container.appendChild(renderer.domElement);
 
-        const nodeGroup = new THREE.Group();
-        const nodeMat = new THREE.MeshPhongMaterial({ color: 0xa855f7, emissive: 0x4c1d95 });
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x6366f1, transparent: true, opacity: 0.4 });
+        const dataCoreGroup = new THREE.Group();
+        
+        const tierGeo1 = new THREE.CylinderGeometry(1.2, 1.2, 0.25, 6, 1, false);
+        const tierMat1 = new THREE.MeshPhongMaterial({ color: 0x6366f1, emissive: 0x1e1b4b, wireframe: true });
+        const tier1 = new THREE.Mesh(tierGeo1, tierMat1);
+        tier1.position.y = 0.7;
+        dataCoreGroup.add(tier1);
 
-        const layers = [[[-2, 1], [-2, 0], [-2, -1]], [[-0.5, 1.5], [-0.5, 0.5], [-0.5, -0.5], [-0.5, -1.5]], [[1, 1], [1, 0], [1, -1]], [[2.5, 0.5], [2.5, -0.5]]];
-        const nodePositions = [];
+        const tierGeo2 = new THREE.CylinderGeometry(1.4, 1.4, 0.25, 8, 1, false);
+        const tierMat2 = new THREE.MeshPhongMaterial({ color: 0xa855f7, emissive: 0x4c1d95, wireframe: true });
+        const tier2 = new THREE.Mesh(tierGeo2, tierMat2);
+        tier2.position.y = 0;
+        dataCoreGroup.add(tier2);
 
-        layers.forEach((layer, li) => {
-            layer.forEach(([x, y]) => {
-                const node = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 12), nodeMat.clone());
-                node.position.set(x, y, (Math.random() - 0.5) * 0.5);
-                nodeGroup.add(node);
-                nodePositions.push({ x, y, z: node.position.z, layer: li });
-            });
-        });
+        const tierGeo3 = new THREE.CylinderGeometry(1.2, 1.2, 0.25, 6, 1, false);
+        const tierMat3 = new THREE.MeshPhongMaterial({ color: 0xec4899, emissive: 0x831843, wireframe: true });
+        const tier3 = new THREE.Mesh(tierGeo3, tierMat3);
+        tier3.position.y = -0.7;
+        dataCoreGroup.add(tier3);
 
-        nodePositions.forEach(a => {
-            nodePositions.forEach(b => {
-                if (b.layer === a.layer + 1) {
-                    const pts = [new THREE.Vector3(a.x, a.y, a.z), new THREE.Vector3(b.x, b.y, b.z)];
-                    nodeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat));
-                }
-            });
-        });
-        scene.add(nodeGroup);
+        scene.add(dataCoreGroup);
 
-        const pulseGeo = new THREE.SphereGeometry(0.08, 8, 8);
-        const pulseMat = new THREE.MeshPhongMaterial({ color: 0xec4899, emissive: 0xec4899, emissiveIntensity: 1 });
-        const pulses = [];
-        for (let i = 0; i < 6; i++) {
-            const p = new THREE.Mesh(pulseGeo, pulseMat);
-            pulses.push({ mesh: p, t: Math.random() });
-            scene.add(p);
+        const ringGroup = new THREE.Group();
+        for (let r = 0; r < 3; r++) {
+            const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(2.3 + r * 0.3, 0.02, 6, 60),
+                new THREE.MeshPhongMaterial({ color: r === 0 ? 0x6366f1 : r === 1 ? 0xa855f7 : 0xec4899, emissive: 0x1e1b4b, transparent: true, opacity: 0.4 })
+            );
+            ring.rotation.x = Math.PI / (2 + r);
+            ring.rotation.z = r * 0.5;
+            ringGroup.add(ring);
         }
+        scene.add(ringGroup);
+
+        const particleCount = 250;
+        const particleGeo = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const colorsArray = new Float32Array(particleCount * 3);
+        const velocities = [];
+
+        const palette = [
+            new THREE.Color(0x6366f1),
+            new THREE.Color(0xec4899),
+            new THREE.Color(0xa855f7)
+        ];
+
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 45;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 18;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 12;
+
+            velocities.push({
+                x: (Math.random() - 0.5) * 0.02,
+                y: (Math.random() - 0.5) * 0.02,
+                z: (Math.random() - 0.5) * 0.02
+            });
+
+            const pickedColor = palette[Math.floor(Math.random() * palette.length)];
+            colorsArray[i * 3] = pickedColor.r;
+            colorsArray[i * 3 + 1] = pickedColor.g;
+            colorsArray[i * 3 + 2] = pickedColor.b;
+        }
+
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        particleGeo.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+
+        const pMaterial = new THREE.PointsMaterial({
+            size: 0.16,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particles = new THREE.Points(particleGeo, pMaterial);
+        scene.add(particles);
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-        const pl = new THREE.PointLight(0xa855f7, 4, 20); pl.position.set(0, 3, 3); scene.add(pl);
-        const pl2 = new THREE.PointLight(0xec4899, 3, 15); pl2.position.set(2, -2, 2); scene.add(pl2);
+        const pl = new THREE.PointLight(0x6366f1, 4, 25); pl.position.set(3, 4, 4); scene.add(pl);
+        const pl2 = new THREE.PointLight(0xec4899, 3, 20); pl2.position.set(-3, -2, 3); scene.add(pl2);
 
-        camera.position.set(0, 0, 6);
-
-        const path = [[-2,0,0],[-0.5,0.8,0],[1,0,0],[2.5,0.3,0]];
-        function lerpPath(progress) {
-            const seg = progress * (path.length - 1);
-            const idx = Math.min(Math.floor(seg), path.length - 2);
-            const frac = seg - idx;
-            const a = path[idx], b = path[idx + 1];
-            return [a[0]+(b[0]-a[0])*frac, a[1]+(b[1]-a[1])*frac, a[2]+(b[2]-a[2])*frac];
-        }
+        camera.position.set(0, 0.5, 5.5);
+        camera.lookAt(0, 0, 0);
 
         let isHovered = false;
         container.addEventListener('mouseenter', () => isHovered = true);
@@ -76,14 +110,31 @@ def render_insights_layout():
         let t = 0;
         function animate() {
             requestAnimationFrame(animate);
-            t += 0.005;
+            t += 0.008;
             const s = isHovered ? 6 : 1;
-            nodeGroup.rotation.y = Math.sin(t * 0.5 * s) * 0.2;
-            pulses.forEach((p, i) => {
-                p.t = (p.t + (0.008 + i * 0.002) * s) % 1;
-                const [x, y, z] = lerpPath(p.t);
-                p.mesh.position.set(x + (Math.random()-0.5)*0.05, y + (Math.random()-0.5)*0.05, z);
-            });
+            
+            tier1.rotation.y += 0.01 * s;
+            tier2.rotation.y -= 0.015 * s;
+            tier3.rotation.y += 0.008 * s;
+            
+            dataCoreGroup.rotation.x = Math.sin(t * 0.4) * 0.2;
+            dataCoreGroup.rotation.z = Math.cos(t * 0.3) * 0.1;
+            
+            ringGroup.rotation.y += 0.005 * s;
+            ringGroup.rotation.x += 0.003 * s;
+
+            const positionsArray = particles.geometry.attributes.position.array;
+            for (let i = 0; i < particleCount; i++) {
+                positionsArray[i * 3] += velocities[i].x * s;
+                positionsArray[i * 3 + 1] += velocities[i].y * s;
+                positionsArray[i * 3 + 2] += velocities[i].z * s;
+
+                if (Math.abs(positionsArray[i * 3]) > 22) velocities[i].x *= -1;
+                if (Math.abs(positionsArray[i * 3 + 1]) > 9) velocities[i].y *= -1;
+                if (Math.abs(positionsArray[i * 3 + 2]) > 6) velocities[i].z *= -1;
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+
             renderer.render(scene, camera);
         }
         animate();
