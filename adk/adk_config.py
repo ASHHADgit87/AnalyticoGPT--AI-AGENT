@@ -1,14 +1,13 @@
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+import streamlit as st
 
 
 class ADKConfig:
-    MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    API_KEY = os.getenv("GOOGLE_API_KEY")
+    MODEL_NAME = "gemini-2.5-flash"
+
+    API_KEY = st.secrets.get("GOOGLE_API_KEY", os.getenv("GOOGLE_API_KEY"))
 
     @classmethod
     def validate_config(cls):
         if not cls.API_KEY:
-            raise ValueError("GOOGLE_API_KEY environment variable is missing")
+            raise ValueError("GOOGLE_API_KEY is missing (Streamlit Secrets not set)")
