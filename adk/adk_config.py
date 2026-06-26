@@ -5,9 +5,21 @@ import streamlit as st
 class ADKConfig:
     MODEL_NAME = "gemini-2.5-flash"
 
-    API_KEY = st.secrets.get("GOOGLE_API_KEY", os.getenv("GOOGLE_API_KEY"))
+    @staticmethod
+    def _get_api_key():
+        env_key = os.getenv("GOOGLE_API_KEY")
+        if env_key:
+            return env_key
+        try:
+            return st.secrets.get("GOOGLE_API_KEY")
+        except Exception:
+            return None
+
+    API_KEY = _get_api_key()
 
     @classmethod
     def validate_config(cls):
         if not cls.API_KEY:
-            raise ValueError("GOOGLE_API_KEY is missing (Streamlit Secrets not set)")
+            raise ValueError(
+                "GOOGLE_API_KEY is missing (set in .env or Streamlit secrets)"
+            )

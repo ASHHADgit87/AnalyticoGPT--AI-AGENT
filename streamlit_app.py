@@ -91,11 +91,27 @@ st.markdown(
         font-size: 0.9rem;
     }}
     #MainMenu {{ visibility: hidden; }}
-    footer {{ visibility: hidden; }}
+    footer {{ visibility: visible; opacity: 0; pointer-events: none; height: 3rem; }}
     header {{ visibility: hidden !important; }}
     [data-testid="stHeader"] {{ display: none !important; }}
     [data-testid="collapsedControl"] {{ display: none !important; }}
     [data-testid="stSidebarCollapseButton"] {{ display: none !important; }}
+    
+    @media (max-width: 700px) {{
+        html, body {{
+            height: auto !important;
+            overflow: auto !important;
+        }}
+        [data-testid="stAppViewContainer"] {{
+            min-height: 100vh !important;
+            overflow: auto !important;
+            padding-bottom: 4rem !important;
+        }}
+        .block-container {{
+            min-height: auto !important;
+            overflow: visible !important;
+        }}
+    }}
 
     @media (min-width: 701px) {{
         [data-testid="stSidebar"][aria-expanded="false"] {{
@@ -303,16 +319,23 @@ st.markdown(
             margin-left: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
+            min-height: calc(100vh - 5.25rem) !important;
+            overflow-y: auto !important;
+            display: flex !important;
+            flex-direction: column !important;
         }}
 
         [data-testid="stAppViewContainer"] > section.main {{
             width: 100% !important;
             max-width: 100% !important;
+            flex: 1 !important;
+            min-height: 100% !important;
         }}
 
         .block-container {{
-            padding: 1rem 0.75rem 0.75rem !important;
+            padding: 1rem 0.75rem 4rem 0.75rem !important;
             max-width: 100% !important;
+            flex: 1 !important;
         }}
 
         .element-container {{
