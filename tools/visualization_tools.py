@@ -107,21 +107,16 @@ def generate_trend_line_chart(
     plot_df[y_col] = pd.to_numeric(plot_df[y_col], errors="coerce")
     plot_df = plot_df.dropna(subset=[y_col, x_col])
 
+    if x_col and x_col in plot_df.columns and x_col != "index":
+        plot_df = (
+            plot_df.groupby(x_col, as_index=False)[y_col].mean().sort_values(by=x_col)
+        )
+    else:
+        plot_df = plot_df.sort_values(by=x_col)
+
     if len(plot_df) > 1000:
         step = max(1, len(plot_df) // 1000)
         plot_df = plot_df.iloc[::step]
-
-    if x_col and x_col in plot_df.columns and x_col != "index":
-        if pd.api.types.is_numeric_dtype(
-            plot_df[x_col]
-        ) or pd.api.types.is_datetime64_any_dtype(plot_df[x_col]):
-            plot_df = plot_df.sort_values(by=x_col)
-        else:
-            plot_df = (
-                plot_df.groupby(x_col, as_index=False)[y_col]
-                .mean()
-                .sort_values(by=x_col)
-            )
 
     plot_df = plot_df.reset_index(drop=True)
     x_values = list(range(len(plot_df)))
