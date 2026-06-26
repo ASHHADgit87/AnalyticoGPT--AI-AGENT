@@ -12,8 +12,11 @@ from tools.statistics_tools import (
     compute_descriptive_stats,
     extract_top_performers,
     generate_correlation_matrix,
+    get_meaningful_numeric_columns,
+    get_numeric_columns,
 )
 from tools.visualization_tools import (
+    generate_bar_chart,
     generate_correlation_heatmap,
     generate_trend_line_chart,
 )
@@ -52,6 +55,7 @@ class PipelineService:
 
         metric_column = self._choose_metric_column(cleaned_df)
         feature_column = self._choose_feature_column(cleaned_df, metric_column)
+        chart_plan = self._select_chart_plan(cleaned_df, metric_column, feature_column)
 
         top_performers_df = (
             extract_top_performers(cleaned_df, metric_column, top_n=5)
@@ -61,18 +65,37 @@ class PipelineService:
         top_performers = top_performers_df.to_dict(orient="records")
 
         heatmap_path = ""
-        if correlation_matrix:
+        if chart_plan.get("generate_heatmap") and correlation_matrix:
             heatmap_path = generate_correlation_heatmap(
                 correlation_matrix, output_dir=self.chart_dir
             )
 
         trend_path = ""
         forecast_results: Dict[str, Any] = {}
-        if feature_column and metric_column and feature_column != metric_column:
+        if (
+            feature_column
+            and metric_column
+            and feature_column != metric_column
+            and cleaned_df[feature_column].notna().any()
+            and cleaned_df[metric_column].notna().any()
+            and cleaned_df[feature_column].nunique() > 1
+            and cleaned_df[metric_column].nunique() > 1
+        ):
             try:
-                trend_path = generate_trend_line_chart(
-                    cleaned_df, feature_column, metric_column, output_dir=self.chart_dir
-                )
+                if chart_plan.get("chart_type") == "bar":
+                    trend_path = generate_bar_chart(
+                        cleaned_df,
+                        feature_column,
+                        metric_column,
+                        output_dir=self.chart_dir,
+                    )
+                else:
+                    trend_path = generate_trend_line_chart(
+                        cleaned_df,
+                        feature_column,
+                        metric_column,
+                        output_dir=self.chart_dir,
+                    )
                 forecast_results = compute_linear_extrapolation(
                     cleaned_df, feature_column, metric_column, steps=5
                 )
@@ -113,22 +136,138 @@ class PipelineService:
         }
 
     def _choose_metric_column(self, df: pd.DataFrame) -> Optional[str]:
-        numeric_columns = df.select_dtypes(include=["number"]).columns.tolist()
+        if "RD_Value" in df.columns:
+            return "RD_Value"
+
+        numeric_columns = get_numeric_columns(df)
         if not numeric_columns:
+            for col in df.columns:
+                if col.lower() == "rd_value":
+                    return col
             return None
-        return "Score" if "Score" in numeric_columns else numeric_columns[-1]
+
+        preferred_names = ["score", "sales", "profit", "value", "amount", "revenue"]
+        for preferred in preferred_names:
+            for col in numeric_columns:
+                if col.lower() == preferred or preferred in col.lower():
+                    return col
+
+        if "Score" in numeric_columns:
+            return "Score"
+
+        candidate_columns = []
+        for col in numeric_columns:
+            numeric_series = pd.to_numeric(df[col], errors="coerce").dropna()
+            if numeric_series.empty:
+                continue
+            if numeric_series.nunique() > 1 and numeric_series.std(ddof=0) > 0:
+                candidate_columns.append(col)
+
+        if not candidate_columns:
+            return numeric_columns[0]
+
+        return max(
+            candidate_columns,
+            key=lambda col: (
+                pd.to_numeric(df[col], errors="coerce").nunique(),
+                abs(pd.to_numeric(df[col], errors="coerce").std(ddof=0)),
+                abs(pd.to_numeric(df[col], errors="coerce").mean()),
+            ),
+        )
 
     def _choose_feature_column(
         self, df: pd.DataFrame, metric_column: Optional[str]
     ) -> Optional[str]:
-        numeric_columns = df.select_dtypes(include=["number"]).columns.tolist()
+        for col in df.columns:
+            if col.lower() == "year" and col != metric_column:
+                return col
+
+        date_like_patterns = [
+            "date",
+            "datetime",
+            "timestamp",
+            "year",
+            "month",
+            "quarter",
+            "day",
+            "week",
+            "time",
+        ]
+
+        for col in df.columns:
+            if col == metric_column:
+                continue
+
+            lower_name = col.lower()
+            if any(pattern in lower_name for pattern in date_like_patterns):
+                parsed = pd.to_datetime(df[col], errors="coerce")
+                if parsed.notna().sum() >= 2:
+                    return col
+
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                return col
+
+        numeric_columns = get_numeric_columns(df)
         if not numeric_columns:
-            return None
-        if metric_column and metric_column in numeric_columns:
-            other_columns = [col for col in numeric_columns if col != metric_column]
-            if other_columns:
-                return other_columns[0]
-        return numeric_columns[0]
+            return "index"
+
+        useful_columns = [
+            col
+            for col in numeric_columns
+            if col != metric_column and df[col].nunique() > 1
+        ]
+        if useful_columns:
+            preferred_order = ["year", "month", "day", "date", "time", "index"]
+            for preferred in preferred_order:
+                for col in useful_columns:
+                    if col.lower() == preferred:
+                        return col
+
+            return useful_columns[0]
+
+        other_columns = [col for col in numeric_columns if col != metric_column]
+        return other_columns[0] if other_columns else "index"
+
+    def _is_time_like_column(self, df: pd.DataFrame, col: str) -> bool:
+        if col in {"index", "Index"}:
+            return True
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            return True
+
+        lower_name = col.lower()
+        if any(
+            token in lower_name
+            for token in ["date", "time", "year", "month", "day", "week", "quarter"]
+        ):
+            return True
+
+        parsed = pd.to_datetime(df[col], errors="coerce")
+        return parsed.notna().sum() >= 2
+
+    def _select_chart_plan(
+        self,
+        df: pd.DataFrame,
+        metric_column: Optional[str],
+        feature_column: Optional[str],
+    ) -> Dict[str, Any]:
+        meaningful_numeric_columns = get_meaningful_numeric_columns(df)
+        generate_heatmap = len(meaningful_numeric_columns) >= 3
+
+        chart_type = "line"
+        if feature_column and metric_column and feature_column != metric_column:
+            if self._is_time_like_column(df, feature_column):
+                chart_type = "line"
+            elif df[feature_column].nunique() <= 20:
+                chart_type = "bar"
+            else:
+                chart_type = "bar"
+
+        return {
+            "chart_type": chart_type,
+            "generate_heatmap": generate_heatmap,
+            "metric_column": metric_column,
+            "feature_column": feature_column,
+        }
 
     def _build_insights_text(
         self,
