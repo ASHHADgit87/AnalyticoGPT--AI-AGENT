@@ -246,9 +246,9 @@ st.markdown(
 
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:first-child img,
         [data-testid="stSidebar"] [data-testid="stImage"] img {{
-            height: 3.5rem !important;
+            height: 3rem !important;
             width: auto !important;
-            max-height: 3.5rem !important;
+            max-height: 3rem !important;
             display: block !important;
             object-fit: contain !important;
         }}
