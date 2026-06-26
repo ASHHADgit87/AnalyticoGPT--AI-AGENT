@@ -19,7 +19,7 @@ if "page" in st.query_params:
         "AI Deep Insights",
         "Analysis Report",
     ]
-    if requested in valid_pages:
+    if requested in valid_pages and st.session_state.get("nav_page") != requested:
         st.session_state.nav_page = requested
         st.session_state.mobile_menu_open = False
 
