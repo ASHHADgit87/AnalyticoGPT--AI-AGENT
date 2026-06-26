@@ -1,77 +1,120 @@
-# AnalyticoGPT
+# AnalyticoGPT-Agent
 
-**AnalyticoGPT** is a custom AI agent built for enterprise data analytics and reporting. It blends a Streamlit frontend with a Python service layer and Google ADK/Gemini-powered AI agents to ingest CSV data, clean it, analyze it, visualize it, and generate executive reports.
+**AnalyticoGPT** is an enterprise-grade AI-Agent for data analytics built with **Python, Streamlit, Google ADK, and Gemini AI**. Users upload CSV datasets, and the platform automatically performs data ingestion, cleaning, statistical analysis, visualization, forecasting, AI-powered business insight generation, and executive PDF report creation through a multi-agent workflow.
 
 ---
 
-## 🤖 Google ADK Integration
+# Google ADK Integration
 
-AnalyticoGPT uses Google Agent Development Kit (ADK) to build and orchestrate a multi-agent analytics workflow.
+AnalyticoGPT uses **Google Agent Development Kit (ADK)** to orchestrate an intelligent multi-agent analytics pipeline.
 
 ### ADK Usage
-- Agent creation using `google.adk.Agent`
-- Centralized agent management through `AgentRegistry`
-- Task routing via `AgentRouter`
-- Workflow orchestration using `google.adk.Workflow`
+- `google.adk.Agent`
+- `google.adk.Workflow`
+- `AgentRegistry`
+- `AgentRouter`
+- `AnalysisWorkflowBuilder`
 - Gemini-powered reasoning and report generation
-- Sequential agent pipeline for end-to-end analytics
 
-### ADK Workflow
-Dataset Detection → Data Cleaning → Analysis → Visualization → Forecasting → Insights → Report Generation
+### Multi-Agent Workflow
 
-### ADK Components
-- `ADKConfig` – Gemini model and API configuration
-- `AgentRegistry` – Agent registration and retrieval
-- `AgentRouter` – Task delegation
-- `AnalysisWorkflowBuilder` – Multi-agent workflow construction
+Dataset Detection → Data Cleaning → Statistical Analysis → Visualization → Forecasting → AI Insights → PDF Report Generation
 
 ---
 
-## 🏛️ Architecture
+# Architecture
 
-**AnalyticoGPT follows a modular multi-tier architecture**, providing a clean separation of concerns for scalability, maintainability, and security.
+AnalyticoGPT follows a **modular multi-tier SaaS architecture**:
 
----
-
-## ☁️ SaaS 
-
-AnalyticoGPT follows the **Software as a Service (SaaS)** model by providing centrally hosted functionality that users access through a browser interface without local installation.
-
----
-
-## ✨ Features
-
-### 📊 Data Pipeline
-- CSV upload and validation  
-- Automatic data cleaning and standardization  
-
-
-### 🧠 AI Agent Orchestration
-- Custom `root_agent` orchestrates end-to-end analysis workflow  
-
-
-### 📈 Analytics & Visualization
-- Descriptive statistics and correlation matrix generation  
-- Heatmap and trend chart export  
-
-
-### 📄 Reporting
-- Structured PDF report generation with ReportLab  
+- **Frontend:** Streamlit
+- **Services:** Pipeline orchestration & dataset management
+- **AI Agents:** Google ADK workflow
+- **Tools:** Cleaning, Statistics, Visualization, Forecasting, PDF & Gemini
+- **Models:** Dataset metadata, analysis results & reports
 
 ---
 
-## 🛠️ Tech Stack
+# AaaS
+
+AnalyticoGPT is delivered as a **Agent-as-a-Service (AaaS)** application, enabling users to perform enterprise-scale AI analytics directly from a web browser without local installation.
+
+---
+
+# Features
+
+### Multi-Agent AI Workflow
+- 7 specialized AI agents
+- Sequential ADK orchestration
+- Fully automated analytics pipeline
+
+### Analytics
+- Descriptive statistics
+- Correlation matrix
+- Outlier detection
+
+### Visualization
+- Correlation heatmaps
+- Trend & scatter plots
+
+### Forecasting
+- Linear forecasting
+- 5-step future prediction
+
+### AI Insights
+- Gemini-generated business insights
+- Executive summaries
+
+### Reporting
+- Executive PDF reports
+
+---
+
+# Processing Capability
+
+- Processes **entire CSV datasets**
+- Supports **unlimited rows & columns** 
+- Analyzes every numeric and categorical column
+- End-to-end automated processing from upload to PDF
+
+### Typical Processing Flow
+
+Upload → Profile → Clean → Analyze → Visualize → Forecast → AI Insights → PDF Report
+
+---
+
+# Scalability
+
+Processing capacity mainly depends on available **RAM**.
+
+| RAM | Approx Dataset Size |
+|------|--------------------:|
+| 8 GB | 1.5–2 Million Rows |
+| 16 GB | 3–4 Million Rows |
+| 32+ GB | 5+ Million Rows |
+
+✅ **1.1 Million records are fully supported.**
+
+---
+
+## Tech Stack
 
 - **Frontend:** Streamlit  
 - **Backend:** Python  
-- **AI / Agent:** Google ADK + Gemini / GenAI  
-- **Data:** Pandas, NumPy  
+- **AI Framework:** Google Agent Development Kit (ADK)  
+- **LLM:** Google Gemini / GenAI  
+- **Data Processing:** Pandas, NumPy  
 - **Visualization:** Matplotlib, Seaborn  
-- **PDF:** ReportLab  
-
+- **Report Generation:** ReportLab
 
 ---
 
-## 🚀 Getting Started
+# Live Demo
 
 https://analyticogpt--ai-agent.streamlit.app/
+
+---
+
+## Creator & Developer
+
+- **Muhammad Ashhadullah Zaheer**  
+- 🔗 LinkedIn: https://www.linkedin.com/in/muhammad-ashhadullah-zaheer-41194a340/
