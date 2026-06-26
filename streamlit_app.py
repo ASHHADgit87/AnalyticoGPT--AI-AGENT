@@ -210,18 +210,38 @@ st.markdown(
         }}
 
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {{
-            {"flex-direction: column !important; align-items: stretch !important; gap: 0.5rem !important;" if mobile_open else "flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; justify-content: space-between !important; gap: 0.75rem !important; height: 100% !important; min-height: 2.4rem !important;"}
+            display: grid !important;
+            grid-template-columns: 1fr auto !important;
+            grid-auto-rows: auto !important;
+            grid-auto-flow: row dense !important;
+            gap: 0.5rem !important;
             width: 100% !important;
             padding: 0 !important;
             margin: 0 !important;
         }}
 
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:first-child,
-        [data-testid="stSidebar"] [data-testid="stFullScreenFrame"],
-        [data-testid="stSidebar"] [data-testid="stImage"] {{
-            {"width: 100% !important; max-width: 100% !important; flex: none !important;" if mobile_open else "flex: 1 1 auto !important; width: auto !important; max-width: calc(100% - 3rem) !important; min-width: 0 !important; height: auto !important;"}
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:first-child {{
+            grid-column: 1 / 2 !important;
+            width: auto !important;
             margin: 0 !important;
             padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(2) {{
+            grid-column: 2 / 3 !important;
+            width: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-self: end !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(n+3) {{
+            grid-column: 1 / -1 !important;
+            width: 100% !important;
         }}
 
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:first-child img,
