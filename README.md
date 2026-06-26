@@ -4,7 +4,7 @@
 
 ---
 
-# 🤖 Google ADK Integration
+# Google ADK Integration
 
 AnalyticoGPT uses **Google Agent Development Kit (ADK)** to orchestrate an intelligent multi-agent analytics pipeline.
 
@@ -22,7 +22,7 @@ Dataset Detection → Data Cleaning → Statistical Analysis → Visualization �
 
 ---
 
-# 🏛️ Architecture
+# Architecture
 
 AnalyticoGPT follows a **modular multi-tier SaaS architecture**:
 
@@ -34,42 +34,42 @@ AnalyticoGPT follows a **modular multi-tier SaaS architecture**:
 
 ---
 
-# ☁️ SaaS
+# AaaS
 
-AnalyticoGPT is delivered as a **Software-as-a-Service (SaaS)** application, enabling users to perform enterprise-scale AI analytics directly from a web browser without local installation.
+AnalyticoGPT is delivered as a **Agent-as-a-Service (AaaS)** application, enabling users to perform enterprise-scale AI analytics directly from a web browser without local installation.
 
 ---
 
-# ✨ Features
+# Features
 
-### 🤖 Multi-Agent AI Workflow
+### Multi-Agent AI Workflow
 - 7 specialized AI agents
 - Sequential ADK orchestration
 - Fully automated analytics pipeline
 
-### 📊 Analytics
+### Analytics
 - Descriptive statistics
 - Correlation matrix
 - Outlier detection
 
-### 📈 Visualization
+### Visualization
 - Correlation heatmaps
 - Trend & scatter plots
 
-### 🔮 Forecasting
+### Forecasting
 - Linear forecasting
 - 5-step future prediction
 
-### 💡 AI Insights
+### AI Insights
 - Gemini-generated business insights
 - Executive summaries
 
-### 📄 Reporting
+### Reporting
 - Executive PDF reports
 
 ---
 
-# ⚡ Processing Capability
+# Processing Capability
 
 - Processes **entire CSV datasets**
 - Supports **unlimited rows & columns** 
@@ -82,7 +82,7 @@ Upload → Profile → Clean → Analyze → Visualize → Forecast → AI Insig
 
 ---
 
-# 🚀 Scalability
+# Scalability
 
 Processing capacity mainly depends on available **RAM**.
 
@@ -96,7 +96,7 @@ Processing capacity mainly depends on available **RAM**.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend:** Streamlit  
 - **Backend:** Python  
@@ -108,13 +108,13 @@ Processing capacity mainly depends on available **RAM**.
 
 ---
 
-# 🚀 Live Demo
+# Live Demo
 
 https://analyticogpt--ai-agent.streamlit.app/
 
 ---
 
-## 👨‍💻 Creator & Developer
+## Creator & Developer
 
 - **Muhammad Ashhadullah Zaheer**  
 - 🔗 LinkedIn: https://www.linkedin.com/in/muhammad-ashhadullah-zaheer-41194a340/
