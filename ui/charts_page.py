@@ -114,21 +114,17 @@ def render_charts_layout():
             requestAnimationFrame(animate);
             t += 0.01;
             const s = isHovered ? 6 : 1;
-            
             barGroup.rotation.y = Math.sin(t * 1.2 * s) * 0.6;
-            
             const positionsArray = particles.geometry.attributes.position.array;
             for (let i = 0; i < particleCount; i++) {
                 positionsArray[i * 3] += velocities[i].x * s;
                 positionsArray[i * 3 + 1] += velocities[i].y * s;
                 positionsArray[i * 3 + 2] += velocities[i].z * s;
-
                 if (Math.abs(positionsArray[i * 3]) > 22) velocities[i].x *= -1;
                 if (Math.abs(positionsArray[i * 3 + 1]) > 9) velocities[i].y *= -1;
                 if (Math.abs(positionsArray[i * 3 + 2]) > 6) velocities[i].z *= -1;
             }
             particles.geometry.attributes.position.needsUpdate = true;
-            
             renderer.render(scene, camera);
         }
         animate();
@@ -146,19 +142,25 @@ def render_charts_layout():
     if pipeline_result:
         shown = False
 
-        if pipeline_result.get("heatmap_path"):
+        if pipeline_result.get("heatmap_path") and os.path.exists(
+            pipeline_result["heatmap_path"]
+        ):
             st.markdown("### Correlation Heatmap")
             st.image(pipeline_result["heatmap_path"], width="stretch")
             shown = True
 
-        if pipeline_result.get("trend_path"):
+        if pipeline_result.get("trend_path") and os.path.exists(
+            pipeline_result["trend_path"]
+        ):
+            st.markdown("### Trend Chart")
+            st.image(pipeline_result["trend_path"], width="stretch")
+            shown = True
 
-            trend_path = pipeline_result["trend_path"]
-            if trend_path.endswith("_bar.png"):
-                st.markdown("### Bar Chart")
-            else:
-                st.markdown("### Trend Chart")
-            st.image(trend_path, width="stretch")
+        if pipeline_result.get("bar_path") and os.path.exists(
+            pipeline_result["bar_path"]
+        ):
+            st.markdown("### Bar Chart")
+            st.image(pipeline_result["bar_path"], width="stretch")
             shown = True
 
         if not shown:
