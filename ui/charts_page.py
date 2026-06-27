@@ -5,6 +5,18 @@ import os
 
 def render_charts_layout():
     st.markdown(
+        """
+<style>
+@media (max-width: 700px) {
+    .main-header { font-size: 1.4rem !important; margin-top: 0rem !important; }
+    img { width: 100% !important; height: auto !important; }
+}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
         '<div class="main-header"> PIPELINE GRAPHICAL INTERFACE</div>',
         unsafe_allow_html=True,
     )
@@ -133,14 +145,20 @@ def render_charts_layout():
     pipeline_result = st.session_state.get("pipeline_result")
     if pipeline_result:
         shown = False
+
         if pipeline_result.get("heatmap_path"):
             st.markdown("### Correlation Heatmap")
             st.image(pipeline_result["heatmap_path"], width="stretch")
             shown = True
 
         if pipeline_result.get("trend_path"):
-            st.markdown("### Trend Chart")
-            st.image(pipeline_result["trend_path"], width="stretch")
+
+            trend_path = pipeline_result["trend_path"]
+            if trend_path.endswith("_bar.png"):
+                st.markdown("### Bar Chart")
+            else:
+                st.markdown("### Trend Chart")
+            st.image(trend_path, width="stretch")
             shown = True
 
         if not shown:
