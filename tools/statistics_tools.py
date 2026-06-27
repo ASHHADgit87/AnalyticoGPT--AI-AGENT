@@ -696,14 +696,22 @@ def _choose_primary_metric(
     metric_cols: List[str],
     time_col: Optional[str],
 ) -> Optional[str]:
-    """Issue 9 fix: score-based primary metric selection instead of pure keyword match."""
+    """Score-based primary metric selection — skips binary/near-binary columns."""
     if not metric_cols:
         return None
     candidates = [c for c in metric_cols if c != time_col]
     if not candidates:
         return None
+    non_binary = []
+    for c in candidates:
+        s = _coerce_numeric_series(df[c]).dropna()
+        if s.nunique() <= 2 and (s.max() - s.min()) <= 1:
+            continue
+        non_binary.append(c)
 
-    scores = {c: _score_metric_column(df, c, time_col) for c in candidates}
+    filtered = non_binary if non_binary else candidates
+
+    scores = {c: _score_metric_column(df, c, time_col) for c in filtered}
     return max(scores, key=scores.get)
 
 
@@ -911,15 +919,42 @@ def _find_categorical_col(
         if series.dtype == object or str(series.dtype) == "category":
             n_unique = series.nunique()
             if 2 <= n_unique <= 200:
-                candidates.append((col, n_unique))
+                candidates.append((col, n_unique, "text"))
         elif pd.api.types.is_numeric_dtype(series):
             n_unique = series.nunique()
+
+            lower = col.lower()
+            is_ordinal_like = any(
+                t in lower
+                for t in [
+                    "day_of_week",
+                    "day_of_month",
+                    "day_of_year",
+                    "week",
+                    "hour",
+                    "minute",
+                    "second",
+                    "month",
+                    "quarter",
+                    "year",
+                ]
+            )
+            if is_ordinal_like:
+                continue
             if 2 <= n_unique <= 20:
-                candidates.append((col, n_unique))
+                candidates.append((col, n_unique, "numeric"))
+
     if not candidates:
         return None
-    candidates.sort(key=lambda x: x[1])
-    return candidates[0][0]
+
+    text_cats = [(c, n) for c, n, t in candidates if t == "text"]
+    num_cats = [(c, n) for c, n, t in candidates if t == "numeric"]
+
+    if text_cats:
+        text_cats.sort(key=lambda x: x[1])
+        return text_cats[0][0]
+    num_cats.sort(key=lambda x: x[1])
+    return num_cats[0][0] if num_cats else None
 
 
 def _find_feature_col(
