@@ -171,7 +171,7 @@ def render_upload_layout():
         try:
             file_bytes = uploaded_file.read()
             pipeline = PipelineService()
-            with st.spinner("Processing dataset through the full pipeline..."):
+            with st.spinner("Processing dataset through the full pipeline...; This may take upto 4-5 mintues depending upon the datasize..."):
                 result = pipeline.run_full_pipeline(uploaded_file.name, file_bytes)
 
             st.session_state["pipeline_result"] = result
