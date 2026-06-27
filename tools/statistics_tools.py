@@ -90,7 +90,7 @@ def compute_descriptive_stats(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
 
 def generate_correlation_matrix(df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
     numeric_columns = get_meaningful_numeric_columns(df)
-    if len(numeric_columns) < 3:
+    if len(numeric_columns) < 2:
         return {}
 
     numeric_df = pd.DataFrame(
