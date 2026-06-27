@@ -72,17 +72,22 @@ class PipelineService:
 
         trend_path = ""
         forecast_results: Dict[str, Any] = {}
-        if (
+
+        can_chart = (
             feature_column
             and metric_column
             and feature_column != metric_column
-            and cleaned_df[feature_column].notna().any()
-            and cleaned_df[metric_column].notna().any()
+            and feature_column in cleaned_df.columns
+            and metric_column in cleaned_df.columns
             and cleaned_df[feature_column].nunique() > 1
             and cleaned_df[metric_column].nunique() > 1
-        ):
+        )
+
+        if can_chart:
+            chart_type = chart_plan.get("chart_type", "line")
             try:
-                if chart_plan.get("chart_type") == "bar":
+                if chart_type == "bar":
+
                     trend_path = generate_bar_chart(
                         cleaned_df,
                         feature_column,
@@ -90,6 +95,7 @@ class PipelineService:
                         output_dir=self.chart_dir,
                     )
                 else:
+
                     trend_path = generate_trend_line_chart(
                         cleaned_df,
                         feature_column,
@@ -141,9 +147,6 @@ class PipelineService:
 
         numeric_columns = get_numeric_columns(df)
         if not numeric_columns:
-            for col in df.columns:
-                if col.lower() == "rd_value":
-                    return col
             return None
 
         preferred_names = ["score", "sales", "profit", "value", "amount", "revenue"]
@@ -155,13 +158,12 @@ class PipelineService:
         if "Score" in numeric_columns:
             return "Score"
 
-        candidate_columns = []
-        for col in numeric_columns:
-            numeric_series = pd.to_numeric(df[col], errors="coerce").dropna()
-            if numeric_series.empty:
-                continue
-            if numeric_series.nunique() > 1 and numeric_series.std(ddof=0) > 0:
-                candidate_columns.append(col)
+        candidate_columns = [
+            col
+            for col in numeric_columns
+            if pd.to_numeric(df[col], errors="coerce").nunique() > 1
+            and pd.to_numeric(df[col], errors="coerce").std(ddof=0) > 0
+        ]
 
         if not candidate_columns:
             return numeric_columns[0]
@@ -178,71 +180,74 @@ class PipelineService:
     def _choose_feature_column(
         self, df: pd.DataFrame, metric_column: Optional[str]
     ) -> Optional[str]:
-        for col in df.columns:
-            if col.lower() == "year" and col != metric_column:
-                return col
-
-        date_like_patterns = [
-            "date",
-            "datetime",
-            "timestamp",
-            "year",
-            "month",
-            "quarter",
-            "day",
-            "week",
-            "time",
-        ]
 
         for col in df.columns:
             if col == metric_column:
                 continue
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                return col
 
+        date_like_patterns = ["date", "datetime", "timestamp", "time"]
+        for col in df.columns:
+            if col == metric_column:
+                continue
             lower_name = col.lower()
             if any(pattern in lower_name for pattern in date_like_patterns):
                 parsed = pd.to_datetime(df[col], errors="coerce")
                 if parsed.notna().sum() >= 2:
                     return col
 
-            if pd.api.types.is_datetime64_any_dtype(df[col]):
-                return col
+        categorical_candidates = []
+        for col in df.columns:
+            if col == metric_column:
+                continue
+            if df[col].dtype == object or str(df[col].dtype) == "category":
+                n_unique = df[col].nunique()
+                if 2 <= n_unique <= 200:
+                    categorical_candidates.append((col, n_unique))
+
+        if categorical_candidates:
+
+            categorical_candidates.sort(key=lambda x: x[1])
+            return categorical_candidates[0][0]
 
         numeric_columns = get_numeric_columns(df)
-        if not numeric_columns:
-            return "index"
-
         useful_columns = [
             col
             for col in numeric_columns
             if col != metric_column and df[col].nunique() > 1
         ]
         if useful_columns:
-            preferred_order = ["year", "month", "day", "date", "time", "index"]
-            for preferred in preferred_order:
-                for col in useful_columns:
-                    if col.lower() == preferred:
-                        return col
 
+            temporal_tokens = ["year", "month", "quarter", "day", "week"]
+            for token in temporal_tokens:
+                for col in useful_columns:
+                    if token in col.lower():
+                        return col
             return useful_columns[0]
 
         other_columns = [col for col in numeric_columns if col != metric_column]
-        return other_columns[0] if other_columns else "index"
+        return other_columns[0] if other_columns else None
 
     def _is_time_like_column(self, df: pd.DataFrame, col: str) -> bool:
         if col in {"index", "Index"}:
             return True
         if pd.api.types.is_datetime64_any_dtype(df[col]):
             return True
-
         lower_name = col.lower()
         if any(
             token in lower_name
             for token in ["date", "time", "year", "month", "day", "week", "quarter"]
         ):
             return True
-
         parsed = pd.to_datetime(df[col], errors="coerce")
         return parsed.notna().sum() >= 2
+
+    def _is_categorical_column(self, df: pd.DataFrame, col: str) -> bool:
+        if df[col].dtype == object or str(df[col].dtype) == "category":
+            return True
+
+        return df[col].nunique() <= 20
 
     def _select_chart_plan(
         self,
@@ -251,16 +256,28 @@ class PipelineService:
         feature_column: Optional[str],
     ) -> Dict[str, Any]:
         meaningful_numeric_columns = get_meaningful_numeric_columns(df)
-        generate_heatmap = len(meaningful_numeric_columns) >= 3
+
+        generate_heatmap = len(meaningful_numeric_columns) >= 2
 
         chart_type = "line"
+
         if feature_column and metric_column and feature_column != metric_column:
-            if self._is_time_like_column(df, feature_column):
+            if feature_column not in df.columns:
+
+                chart_type = "none"
+            elif self._is_time_like_column(df, feature_column):
+
                 chart_type = "line"
-            elif df[feature_column].nunique() <= 20:
+            elif self._is_categorical_column(df, feature_column):
+
                 chart_type = "bar"
             else:
-                chart_type = "bar"
+
+                chart_type = "line"
+
+        if not meaningful_numeric_columns:
+            generate_heatmap = False
+            chart_type = "none"
 
         return {
             "chart_type": chart_type,
@@ -281,15 +298,15 @@ class PipelineService:
         summary.append(
             f"* Processed numeric fields: {', '.join(descriptive_stats.keys()) or 'none'}"
         )
-        summary.append(f"* Selected metric column: {metric_column or 'not available'}")
+        summary.append(f'* Selected metric column: {metric_column or "not available"}')
         summary.append(
-            f"* Selected feature column: {feature_column or 'not available'}"
+            f'* Selected feature column: {feature_column or "not available"}'
         )
         summary.append(f"* Top performers loaded: {len(top_performers)} rows")
 
         stats_summary = "\n".join(
             [
-                f"- {col}: mean={v['mean']:.2f}, min={v['min_value']:.2f}, max={v['max_value']:.2f}, std={v['std_dev']:.2f}"
+                f'- {col}: mean={v["mean"]:.2f}, min={v["min_value"]:.2f}, max={v["max_value"]:.2f}, std={v["std_dev"]:.2f}'
                 for col, v in descriptive_stats.items()
             ]
         )
@@ -324,6 +341,7 @@ class PipelineService:
             f"using the actual variable names and numbers above. Do not use placeholder brackets. "
             f"Highlight key patterns, strongest correlations, outliers, and actionable insights."
         )
+
         if not ADKConfig.API_KEY:
             summary.append(
                 "\nAI insights not available because GOOGLE_API_KEY is not configured."
@@ -335,7 +353,7 @@ class PipelineService:
                 prompt, system_instruction="You are a professional analyst."
             )
             return "\n".join(summary + ["### AI Narrative Insights", ai_output])
-        except Exception as exc:
+        except Exception:
             summary.append(
                 "\nAI engine failed to produce a narrative summary. See error details in logs."
             )
