@@ -3,14 +3,16 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from models.dataset_metadata import DatasetMetadata
 from services.dataset_service import DatasetService
 from tools.cleaning_tools import fill_numeric_defaults, standardize_column_names
 from tools.forecasting_tools import compute_linear_extrapolation
 from tools.pdf_tools import compile_structural_pdf
 from tools.statistics_tools import (
+    build_chart_plan,
     compute_descriptive_stats,
+    compute_data_quality_score,
     extract_top_performers,
+    extract_performer_analysis,
     generate_correlation_matrix,
     get_meaningful_numeric_columns,
     get_numeric_columns,
@@ -22,6 +24,93 @@ from tools.visualization_tools import (
 )
 from tools.gemini_tools import fetch_gemini_structural_completion
 from adk.adk_config import ADKConfig
+
+
+def _run_forecasting(
+    analysis_df: pd.DataFrame,
+    trend_x: str,
+    primary_metric: str,
+    steps: int = 5,
+) -> Dict[str, Any]:
+    """
+    Run all available forecasting methods and return a unified result dict.
+
+    Methods attempted (in order of sophistication):
+      1. Holt's double exponential smoothing  (trend-aware, no seasonal)
+      2. Simple exponential smoothing          (baseline smoothing)
+      3. Linear extrapolation                  (original fallback)
+
+    Each method is tried independently; if it fails, the next is used.
+    The final result includes forecasts from every method that succeeded,
+    plus a 'best_method' label pointing to the most sophisticated successful one.
+    """
+    results: Dict[str, Any] = {"methods": {}, "best_method": None, "error": None}
+
+    work = analysis_df[[trend_x, primary_metric]].copy()
+    work[primary_metric] = pd.to_numeric(
+        work[primary_metric]
+        .astype(str)
+        .str.replace(",", "", regex=False)
+        .str.replace(r"[^0-9.\-]", "", regex=True),
+        errors="coerce",
+    )
+    work = work.dropna().sort_values(trend_x).reset_index(drop=True)
+    y = work[primary_metric].values
+
+    if len(y) < 4:
+        results["error"] = "Insufficient data points for forecasting (need ≥ 4)."
+        return results
+
+    last_x = work[trend_x].iloc[-1]
+    try:
+        from statsmodels.tsa.holtwinters import Holt
+
+        holt_model = Holt(y, exponential=False, damped_trend=True).fit(
+            optimized=True, remove_bias=True
+        )
+        holt_forecast = holt_model.forecast(steps).tolist()
+        results["methods"]["holt"] = {
+            "label": "Holt's Double Exponential Smoothing (damped)",
+            "forecast": holt_forecast,
+            "steps": steps,
+        }
+        results["best_method"] = "holt"
+    except Exception:
+        pass
+    try:
+        from statsmodels.tsa.holtwinters import SimpleExpSmoothing
+
+        ses_model = SimpleExpSmoothing(y).fit(optimized=True, remove_bias=True)
+        ses_forecast = ses_model.forecast(steps).tolist()
+        results["methods"]["simple_exp"] = {
+            "label": "Simple Exponential Smoothing",
+            "forecast": ses_forecast,
+            "steps": steps,
+        }
+        if results["best_method"] is None:
+            results["best_method"] = "simple_exp"
+    except Exception:
+        pass
+
+    try:
+        lin_result = compute_linear_extrapolation(
+            analysis_df, trend_x, primary_metric, steps=steps
+        )
+        results["methods"]["linear"] = {
+            "label": "Linear Extrapolation (OLS)",
+            "forecast": lin_result.get("forecast", []),
+            "steps": steps,
+            "r_squared": lin_result.get("r_squared"),
+        }
+        if results["best_method"] is None:
+            results["best_method"] = "linear"
+    except Exception:
+        pass
+
+    if not results["methods"]:
+        results["error"] = "All forecasting methods failed."
+
+    return results
 
 
 class PipelineService:
@@ -50,73 +139,99 @@ class PipelineService:
         cleaned_df = fill_numeric_defaults(cleaned_df)
         cleaned_path = self.dataset_service.save_cleaned_dataset(cleaned_df, file_name)
 
-        descriptive_stats = compute_descriptive_stats(cleaned_df)
-        correlation_matrix = generate_correlation_matrix(cleaned_df)
+        quality_report = compute_data_quality_score(cleaned_df)
+        plan = build_chart_plan(cleaned_df)
+        analysis_df = plan["analysis_df"]
+        active_unit = plan["active_unit"]
+        primary_metric = plan["primary_metric"]
+        time_col = plan["time_col"]
+        categorical_col = plan["categorical_col"]
 
-        metric_column = self._choose_metric_column(cleaned_df)
-        feature_column = self._choose_feature_column(cleaned_df, metric_column)
-        chart_plan = self._select_chart_plan(cleaned_df, metric_column, feature_column)
+        corr_method = plan.get("correlation_method", "pearson")
+        corr_method_label = corr_method.capitalize()
 
-        top_performers_df = (
-            extract_top_performers(cleaned_df, metric_column, top_n=5)
-            if metric_column
-            else pd.DataFrame()
+        descriptive_stats = compute_descriptive_stats(analysis_df)
+        correlation_matrix = generate_correlation_matrix(
+            analysis_df, method=corr_method
         )
-        top_performers = top_performers_df.to_dict(orient="records")
+
+        performer_analysis: Dict[str, Any] = {}
+        top_performers_df = pd.DataFrame()
+        top_performers: List[Dict] = []
+
+        if primary_metric:
+            performer_analysis = extract_performer_analysis(
+                analysis_df, primary_metric, top_n=5
+            )
+            top_performers = performer_analysis.get("top", [])
+            top_performers_df = pd.DataFrame(top_performers)
 
         heatmap_path = ""
-        if chart_plan.get("generate_heatmap") and correlation_matrix:
-            heatmap_path = generate_correlation_heatmap(
-                correlation_matrix, output_dir=self.chart_dir
-            )
-
         trend_path = ""
+        bar_path = ""
         forecast_results: Dict[str, Any] = {}
 
-        can_chart = (
-            feature_column
-            and metric_column
-            and feature_column != metric_column
-            and feature_column in cleaned_df.columns
-            and metric_column in cleaned_df.columns
-            and cleaned_df[feature_column].nunique() > 1
-            and cleaned_df[metric_column].nunique() > 1
-        )
+        if plan["generate_heatmap"] and correlation_matrix:
+            heatmap_path = generate_correlation_heatmap(
+                correlation_matrix,
+                output_dir=self.chart_dir,
+                method_label=corr_method_label,
+            )
 
-        if can_chart:
-            chart_type = chart_plan.get("chart_type", "line")
-            try:
-                if chart_type == "bar":
-
-                    trend_path = generate_bar_chart(
-                        cleaned_df,
-                        feature_column,
-                        metric_column,
-                        output_dir=self.chart_dir,
-                    )
-                else:
-
-                    trend_path = generate_trend_line_chart(
-                        cleaned_df,
-                        feature_column,
-                        metric_column,
-                        output_dir=self.chart_dir,
-                    )
-                forecast_results = compute_linear_extrapolation(
-                    cleaned_df, feature_column, metric_column, steps=5
+        if plan["generate_trend"] and primary_metric and plan["trend_x"]:
+            trend_x = plan["trend_x"]
+            if (
+                trend_x in analysis_df.columns
+                and primary_metric in analysis_df.columns
+                and analysis_df[trend_x].nunique() >= 2
+            ):
+                trend_path = generate_trend_line_chart(
+                    analysis_df,
+                    trend_x,
+                    primary_metric,
+                    output_dir=self.chart_dir,
+                    unit_label=active_unit,
+                    show_confidence_interval=True,
                 )
-            except Exception:
-                forecast_results = {
-                    "error": "Unable to generate forecast for the selected columns."
-                }
+                forecast_results = _run_forecasting(
+                    analysis_df, trend_x, primary_metric, steps=5
+                )
+
+        if plan["generate_bar"] and primary_metric and plan["bar_x"]:
+            bar_x = plan["bar_x"]
+            if bar_x in analysis_df.columns and primary_metric in analysis_df.columns:
+                try:
+                    skew_val = abs(float(analysis_df[primary_metric].dropna().skew()))
+                    agg = "median" if skew_val > 1.0 else "mean"
+                except Exception:
+                    agg = "mean"
+
+                bar_path = generate_bar_chart(
+                    analysis_df,
+                    bar_x,
+                    primary_metric,
+                    output_dir=self.chart_dir,
+                    unit_label=active_unit,
+                    aggregation=agg,
+                )
 
         insight_text = self._build_insights_text(
-            descriptive_stats,
-            correlation_matrix,
-            top_performers,
-            feature_column,
-            metric_column,
+            descriptive_stats=descriptive_stats,
+            correlation_matrix=correlation_matrix,
+            top_performers=top_performers,
+            performer_analysis=performer_analysis,
+            feature_column=time_col or plan.get("feature_col"),
+            metric_column=primary_metric,
+            active_unit=active_unit,
+            plan=plan,
+            corr_method_label=corr_method_label,
+            quality_report=quality_report,
+            forecast_results=forecast_results,
+            heatmap_generated=bool(heatmap_path),
+            trend_generated=bool(trend_path),
+            bar_generated=bool(bar_path),
         )
+
         pdf_path = compile_structural_pdf(
             target_path=os.path.join(
                 self.report_dir, f"report_{os.path.splitext(file_name)[0]}.pdf"
@@ -134,156 +249,14 @@ class PipelineService:
             "descriptive_stats": descriptive_stats,
             "correlation_matrix": correlation_matrix,
             "top_performers": top_performers,
+            "performer_analysis": performer_analysis,
             "heatmap_path": heatmap_path,
             "trend_path": trend_path,
+            "bar_path": bar_path,
             "forecast_results": forecast_results,
             "insight_text": insight_text,
             "report_path": pdf_path,
-        }
-
-    def _choose_metric_column(self, df: pd.DataFrame) -> Optional[str]:
-        if "RD_Value" in df.columns:
-            return "RD_Value"
-
-        numeric_columns = get_numeric_columns(df)
-        if not numeric_columns:
-            return None
-
-        preferred_names = ["score", "sales", "profit", "value", "amount", "revenue"]
-        for preferred in preferred_names:
-            for col in numeric_columns:
-                if col.lower() == preferred or preferred in col.lower():
-                    return col
-
-        if "Score" in numeric_columns:
-            return "Score"
-
-        candidate_columns = [
-            col
-            for col in numeric_columns
-            if pd.to_numeric(df[col], errors="coerce").nunique() > 1
-            and pd.to_numeric(df[col], errors="coerce").std(ddof=0) > 0
-        ]
-
-        if not candidate_columns:
-            return numeric_columns[0]
-
-        return max(
-            candidate_columns,
-            key=lambda col: (
-                pd.to_numeric(df[col], errors="coerce").nunique(),
-                abs(pd.to_numeric(df[col], errors="coerce").std(ddof=0)),
-                abs(pd.to_numeric(df[col], errors="coerce").mean()),
-            ),
-        )
-
-    def _choose_feature_column(
-        self, df: pd.DataFrame, metric_column: Optional[str]
-    ) -> Optional[str]:
-
-        for col in df.columns:
-            if col == metric_column:
-                continue
-            if pd.api.types.is_datetime64_any_dtype(df[col]):
-                return col
-
-        date_like_patterns = ["date", "datetime", "timestamp", "time"]
-        for col in df.columns:
-            if col == metric_column:
-                continue
-            lower_name = col.lower()
-            if any(pattern in lower_name for pattern in date_like_patterns):
-                parsed = pd.to_datetime(df[col], errors="coerce")
-                if parsed.notna().sum() >= 2:
-                    return col
-
-        categorical_candidates = []
-        for col in df.columns:
-            if col == metric_column:
-                continue
-            if df[col].dtype == object or str(df[col].dtype) == "category":
-                n_unique = df[col].nunique()
-                if 2 <= n_unique <= 200:
-                    categorical_candidates.append((col, n_unique))
-
-        if categorical_candidates:
-
-            categorical_candidates.sort(key=lambda x: x[1])
-            return categorical_candidates[0][0]
-
-        numeric_columns = get_numeric_columns(df)
-        useful_columns = [
-            col
-            for col in numeric_columns
-            if col != metric_column and df[col].nunique() > 1
-        ]
-        if useful_columns:
-
-            temporal_tokens = ["year", "month", "quarter", "day", "week"]
-            for token in temporal_tokens:
-                for col in useful_columns:
-                    if token in col.lower():
-                        return col
-            return useful_columns[0]
-
-        other_columns = [col for col in numeric_columns if col != metric_column]
-        return other_columns[0] if other_columns else None
-
-    def _is_time_like_column(self, df: pd.DataFrame, col: str) -> bool:
-        if col in {"index", "Index"}:
-            return True
-        if pd.api.types.is_datetime64_any_dtype(df[col]):
-            return True
-        lower_name = col.lower()
-        if any(
-            token in lower_name
-            for token in ["date", "time", "year", "month", "day", "week", "quarter"]
-        ):
-            return True
-        parsed = pd.to_datetime(df[col], errors="coerce")
-        return parsed.notna().sum() >= 2
-
-    def _is_categorical_column(self, df: pd.DataFrame, col: str) -> bool:
-        if df[col].dtype == object or str(df[col].dtype) == "category":
-            return True
-
-        return df[col].nunique() <= 20
-
-    def _select_chart_plan(
-        self,
-        df: pd.DataFrame,
-        metric_column: Optional[str],
-        feature_column: Optional[str],
-    ) -> Dict[str, Any]:
-        meaningful_numeric_columns = get_meaningful_numeric_columns(df)
-
-        generate_heatmap = len(meaningful_numeric_columns) >= 2
-
-        chart_type = "line"
-
-        if feature_column and metric_column and feature_column != metric_column:
-            if feature_column not in df.columns:
-
-                chart_type = "none"
-            elif self._is_time_like_column(df, feature_column):
-
-                chart_type = "line"
-            elif self._is_categorical_column(df, feature_column):
-
-                chart_type = "bar"
-            else:
-
-                chart_type = "line"
-
-        if not meaningful_numeric_columns:
-            generate_heatmap = False
-            chart_type = "none"
-
-        return {
-            "chart_type": chart_type,
-            "generate_heatmap": generate_heatmap,
-            "metric_column": metric_column,
-            "feature_column": feature_column,
+            "quality_report": quality_report,
         }
 
     def _build_insights_text(
@@ -291,8 +264,17 @@ class PipelineService:
         descriptive_stats: Dict[str, Any],
         correlation_matrix: Dict[str, Any],
         top_performers: List[Dict[str, Any]],
+        performer_analysis: Dict[str, Any],
         feature_column: Optional[str],
         metric_column: Optional[str],
+        active_unit: str = "",
+        plan: Optional[Dict] = None,
+        corr_method_label: str = "Pearson",
+        quality_report: Optional[Dict[str, Any]] = None,
+        forecast_results: Optional[Dict[str, Any]] = None,
+        heatmap_generated: bool = False,
+        trend_generated: bool = False,
+        bar_generated: bool = False,
     ) -> str:
         summary = ["### Dataset Summary"]
         summary.append(
@@ -302,14 +284,49 @@ class PipelineService:
         summary.append(
             f'* Selected feature column: {feature_column or "not available"}'
         )
+        summary.append(f"* Correlation method used: **{corr_method_label}**")
+        if active_unit:
+            summary.append(f"* Analysis unit: **{active_unit}** (mixed units isolated)")
+        if plan and plan.get("mixed_units_detected"):
+            summary.append(
+                "* ⚠️ Mixed units detected in value column — analysis restricted to dominant unit type"
+            )
+        if plan and plan.get("is_long_format"):
+            summary.append(
+                "* Dataset was in long format — pivoted to wide format for multi-metric analysis"
+            )
         summary.append(f"* Top performers loaded: {len(top_performers)} rows")
 
-        stats_summary = "\n".join(
-            [
-                f'- {col}: mean={v["mean"]:.2f}, min={v["min_value"]:.2f}, max={v["max_value"]:.2f}, std={v["std_dev"]:.2f}'
-                for col, v in descriptive_stats.items()
-            ]
-        )
+        if quality_report:
+            q = quality_report
+            summary.append(
+                f'\n### Data Quality Report  {q["star_str"]}  Score: {q["score"]}/100  [{q["badge"]}]'
+            )
+            summary.append(f'* Missing values: {q["missing_pct"]}%')
+            summary.append(f'* Duplicate rows: {q["duplicate_pct"]}%')
+            summary.append(f'* Outlier ratio: {q["outlier_pct"]}%')
+            summary.append(f'* Average skewness: {q["avg_skewness"]}')
+            bd = q["breakdown"]
+            summary.append(
+                f'* Dimension scores — Completeness: {bd["completeness"]}, '
+                f'Uniqueness: {bd["uniqueness"]}, '
+                f'Outlier: {bd["outlier"]}, '
+                f'Consistency: {bd["consistency"]}, '
+                f'Skewness: {bd["skewness"]}'
+            )
+
+        stats_lines = []
+        for col, v in descriptive_stats.items():
+            line = (
+                f'- {col}: mean={v["mean"]:.2f}, median={v["median"]:.2f}, '
+                f'min={v["min_value"]:.2f}, max={v["max_value"]:.2f}, std={v["std_dev"]:.2f}'
+            )
+            if "skewness" in v:
+                line += f', skew={v["skewness"]:.2f}'
+            if "kurtosis" in v:
+                line += f', kurt={v["kurtosis"]:.2f}'
+            stats_lines.append(line)
+        stats_summary = "\n".join(stats_lines)
 
         top_corr_pairs = []
         seen = set()
@@ -330,16 +347,82 @@ class PipelineService:
             ]
         )
 
+        bottom_performers = performer_analysis.get("bottom", [])
+        growth_leaders = performer_analysis.get("growth", [])
+        bottom_perf_summary = (
+            "\n".join(
+                [
+                    ", ".join([f"{k}={val}" for k, val in row.items()])
+                    for row in bottom_performers[:3]
+                ]
+            )
+            if bottom_performers
+            else "N/A"
+        )
+        growth_summary = (
+            "\n".join(
+                [
+                    ", ".join([f"{k}={val}" for k, val in row.items()])
+                    for row in growth_leaders[:3]
+                ]
+            )
+            if growth_leaders
+            else "N/A"
+        )
+
+        forecast_summary = "Not available."
+        if forecast_results and forecast_results.get("best_method"):
+            best = forecast_results["best_method"]
+            method_data = forecast_results["methods"].get(best, {})
+            label = method_data.get("label", best)
+            fcast_vals = method_data.get("forecast", [])
+            if fcast_vals:
+                forecast_summary = (
+                    f"Method: {label}\n"
+                    f"Next {len(fcast_vals)} steps forecast: "
+                    + ", ".join([f"{v:.2f}" for v in fcast_vals])
+                )
+
+        chart_context = []
+        if heatmap_generated:
+            chart_context.append("Correlation heatmap was generated.")
+        if trend_generated:
+            chart_context.append("Trend line chart was generated with OLS 95% CI.")
+        if bar_generated:
+            chart_context.append("Bar chart was generated.")
+        chart_context_str = (
+            " ".join(chart_context) if chart_context else "No charts generated."
+        )
+
+        quality_context = ""
+        if quality_report:
+            q = quality_report
+            quality_context = (
+                f'Dataset quality score: {q["score"]}/100 ({q["badge"]}). '
+                f'Missing: {q["missing_pct"]}%, Duplicates: {q["duplicate_pct"]}%, '
+                f'Outliers: {q["outlier_pct"]}%, Avg skewness: {q["avg_skewness"]}.'
+            )
+
+        unit_context = f" All values are in {active_unit}." if active_unit else ""
         prompt = (
-            f"You are analyzing a real dataset. Here is the actual data:\n\n"
+            f"You are analyzing a real dataset.{unit_context} Here is the full data context:\n\n"
             f"**Metric column:** {metric_column}\n"
-            f"**Feature column:** {feature_column}\n\n"
-            f"**Descriptive Statistics:**\n{stats_summary}\n\n"
+            f"**Feature column:** {feature_column}\n"
+            f"**Correlation method:** {corr_method_label}\n\n"
+            f"**Data Quality:** {quality_context}\n\n"
+            f"**Descriptive Statistics (with skewness and kurtosis):**\n{stats_summary}\n\n"
             f"**Top Correlations:**\n{corr_summary}\n\n"
-            f"**Top Performers (sample rows):**\n{top_perf_summary}\n\n"
-            f"Write a professional, specific, data-driven analytical narrative (3-5 paragraphs) "
+            f"**Top Performers:**\n{top_perf_summary}\n\n"
+            f"**Bottom Performers:**\n{bottom_perf_summary}\n\n"
+            f"**Top Growth Leaders:**\n{growth_summary}\n\n"
+            f"**Forecast Summary:**\n{forecast_summary}\n\n"
+            f"**Charts Generated:** {chart_context_str}\n\n"
+            f"Write a professional, specific, data-driven analytical narrative (4–6 paragraphs) "
             f"using the actual variable names and numbers above. Do not use placeholder brackets. "
-            f"Highlight key patterns, strongest correlations, outliers, and actionable insights."
+            f"Highlight key patterns, strongest correlations, outliers, data quality issues, "
+            f"forecast direction, top and bottom performers, and actionable insights. "
+            f"Reference skewness and kurtosis where relevant. "
+            f"Comment on any data quality concerns that might affect interpretation."
         )
 
         if not ADKConfig.API_KEY:
@@ -350,11 +433,9 @@ class PipelineService:
 
         try:
             ai_output = fetch_gemini_structural_completion(
-                prompt, system_instruction="You are a professional analyst."
+                prompt, system_instruction="You are a professional data analyst."
             )
             return "\n".join(summary + ["### AI Narrative Insights", ai_output])
         except Exception:
-            summary.append(
-                "\nAI engine failed to produce a narrative summary. See error details in logs."
-            )
+            summary.append("\nAI engine failed to produce a narrative summary.")
             return "\n".join(summary)
