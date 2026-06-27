@@ -24,10 +24,6 @@ def _coerce_numeric(series: pd.Series) -> pd.Series:
 
 
 def _clip_outliers(series: pd.Series) -> pd.Series:
-    """
-    Clip values to 1st–99th percentile for cleaner visualization.
-    Applied only to the display copy — never mutates source data.
-    """
     q_low = series.quantile(0.01)
     q_high = series.quantile(0.99)
     if q_low < q_high:
@@ -36,21 +32,7 @@ def _clip_outliers(series: pd.Series) -> pd.Series:
 
 
 def _wrap_labels(labels: list, width: int = 14) -> list:
-    """Wrap long axis labels so they don't overlap."""
     return [textwrap.fill(str(lbl), width) for lbl in labels]
-
-
-def _parse_datetime_safe(series: pd.Series) -> pd.Series:
-    """
-    EC-10 FIX: Parse a column to datetime, falling back to original if it fails.
-    """
-    try:
-        parsed = pd.to_datetime(series, errors="coerce")
-        if parsed.notna().sum() >= max(2, len(series) * 0.5):
-            return parsed
-    except Exception:
-        pass
-    return series
 
 
 def generate_bar_chart(
@@ -61,21 +43,13 @@ def generate_bar_chart(
     unit_label: str = "",
     aggregation: str = "mean",
 ) -> str:
-    """
-    Generate a bar chart of y_col grouped by x_col.
-    """
     os.makedirs(output_dir, exist_ok=True)
 
     plot_df = df[[x_col, y_col]].copy()
     plot_df[y_col] = _coerce_numeric(plot_df[y_col])
     plot_df = plot_df.dropna(subset=[x_col, y_col])
 
-    if plot_df.empty:
-        return ""
-
-    if len(plot_df) < 2:
-        return ""
-    if plot_df[y_col].nunique() < 2:
+    if plot_df.empty or len(plot_df) < 2 or plot_df[y_col].nunique() < 2:
         return ""
 
     n_unique = plot_df[x_col].nunique()
@@ -96,13 +70,16 @@ def generate_bar_chart(
 
     plot_df[y_col] = _clip_outliers(plot_df[y_col])
 
+    y_range = plot_df[y_col].max() - plot_df[y_col].min()
+    if y_range < 1e-6:
+        return ""
+
     fig, ax = plt.subplots(figsize=(14, 6))
     fig.patch.set_facecolor("#08090f")
     ax.set_facecolor("#0d0e15")
 
     palette = ["#6366f1", "#a855f7", "#ec4899"]
     bar_colors = [palette[i % len(palette)] for i in range(len(plot_df))]
-
     x_labels = _wrap_labels(plot_df[x_col].astype(str).tolist())
 
     ax.bar(
@@ -148,18 +125,6 @@ def generate_correlation_heatmap(
     output_dir: str = "outputs/charts",
     method_label: str = "Pearson",
 ) -> str:
-    """
-    Render a styled correlation heatmap.
-
-    Issue 8 fix: also suppresses the heatmap when every off-diagonal |r| < 0.15,
-    because an all-near-zero matrix carries no actionable information.
-
-    Edge cases handled:
-      EC-01 / EC-09 → Empty or all-zero off-diagonal → skip
-      Issue 8       → All |r| < 0.15 → skip (not just all-zero)
-      Additional    → Long column names wrapped
-      Additional    → method_label shown in title
-    """
     if not matrix_data:
         return ""
 
@@ -188,21 +153,39 @@ def generate_correlation_heatmap(
     short_cols = {c: "\n".join(textwrap.wrap(c, 16)) for c in df_corr.columns}
     df_corr = df_corr.rename(columns=short_cols, index=short_cols)
 
+    annot_size = max(6, 9 - n // 4)
+
+    corr_vals = df_corr.values.astype(float)
+
+    normalized = (corr_vals + 1.0) / 2.0
+
+    annot_array = np.array([[f"{v:.2f}" for v in row] for row in corr_vals])
+
     ax = sns.heatmap(
         df_corr,
-        annot=True,
+        annot=annot_array,
+        fmt="",
         cmap="magma",
         cbar=True,
-        annot_kws={"size": max(6, 9 - n // 4), "color": "#f3f4f6"},
+        annot_kws={"size": annot_size},
         linewidths=0.5,
         linecolor="#1f293d",
         vmin=-1,
         vmax=1,
-        fmt=".2f",
     )
+
+    for i, text in enumerate(ax.texts):
+        row = i // n
+        col = i % n
+        brightness = normalized[row, col]
+
+        text.set_color("black" if brightness > 0.65 else "#f3f4f6")
+        text.set_fontsize(annot_size)
+
     ax.set_facecolor("#08090f")
-    plt.xticks(color="#f3f4f6", rotation=45, ha="right", fontsize=max(6, 8 - n // 6))
-    plt.yticks(color="#f3f4f6", rotation=0, fontsize=max(6, 8 - n // 6))
+    tick_fs = max(6, 8 - n // 6)
+    plt.xticks(color="#f3f4f6", rotation=45, ha="right", fontsize=tick_fs)
+    plt.yticks(color="#f3f4f6", rotation=0, fontsize=tick_fs)
     plt.title(
         f"Correlation Matrix ({method_label})",
         color="#f3f4f6",
@@ -221,18 +204,6 @@ def _compute_ols_confidence_band(
     y_values: np.ndarray,
     alpha: float = 0.05,
 ) -> tuple:
-    """
-    Compute the OLS regression line with a proper 95% confidence interval band.
-
-    Uses the closed-form formula:
-        CI = ŷ ± t * se_fit
-    where:
-        se_fit_i = s * sqrt(1/n + (x_i - x̄)² / Σ(x - x̄)²)
-        s        = residual standard error
-        t        = t critical value at alpha/2, df = n-2
-
-    Returns (y_fit, ci_lower, ci_upper) arrays — or (None, None, None) on failure.
-    """
     n = len(x_numeric)
     if n < 4:
         return None, None, None
@@ -253,15 +224,10 @@ def _compute_ols_confidence_band(
     residuals = y - y_fit
     mse = np.sum(residuals**2) / max(n - 2, 1)
     s = np.sqrt(mse)
-
     se_fit = s * np.sqrt(1.0 / n + (x - x_mean) ** 2 / ss_xx)
-
     t_crit = scipy_stats.t.ppf(1 - alpha / 2, df=max(n - 2, 1))
 
-    ci_lower = y_fit - t_crit * se_fit
-    ci_upper = y_fit + t_crit * se_fit
-
-    return y_fit, ci_lower, ci_upper
+    return y_fit, y_fit - t_crit * se_fit, y_fit + t_crit * se_fit
 
 
 def generate_trend_line_chart(
@@ -272,16 +238,6 @@ def generate_trend_line_chart(
     unit_label: str = "",
     show_confidence_interval: bool = True,
 ) -> str:
-    """
-    Generate a trend line chart with a proper OLS 95% confidence interval band
-    (Issue 2 fix — replaces the misleading rolling-SEM band with true regression CI).
-
-    Edge cases handled:
-      EC-10 FIX → datetime parse before sort
-      EC-12     → sample to 1000 rows
-      Issue 2   → OLS regression CI (statsmodels-free, pure numpy)
-      Additional → Outlier clipping, label wrapping
-    """
     os.makedirs(output_dir, exist_ok=True)
 
     if x_col and x_col in df.columns:
@@ -298,20 +254,26 @@ def generate_trend_line_chart(
 
     if x_col in plot_df.columns and x_col != "index":
 
-        col_is_int_years = False
-        if pd.api.types.is_numeric_dtype(plot_df[x_col]):
-            vals = pd.to_numeric(plot_df[x_col], errors="coerce").dropna()
-            if not vals.empty and ((vals >= 1900) & (vals <= 2100)).all():
-                col_is_int_years = True
+        x_series = plot_df[x_col]
+        should_parse_datetime = False
 
-        if not col_is_int_years:
-            datetime_attempt = _parse_datetime_safe(plot_df[x_col])
-            is_datetime = pd.api.types.is_datetime64_any_dtype(datetime_attempt)
-            if is_datetime:
-                plot_df[x_col] = datetime_attempt
+        if pd.api.types.is_numeric_dtype(x_series):
+
+            should_parse_datetime = False
+        elif x_series.dtype == object:
+
+            sample = x_series.dropna().astype(str).head(20)
+            looks_like_date = (
+                sample.str.match(r"^\d{4}[-/]\d{1,2}([-/]\d{1,2})?").sum() >= 2
+            )
+            should_parse_datetime = looks_like_date
+
+        if should_parse_datetime:
+            parsed = pd.to_datetime(plot_df[x_col], errors="coerce")
+            if parsed.notna().sum() >= 2:
+                plot_df[x_col] = parsed
 
         plot_df = plot_df.groupby(x_col, as_index=False)[y_col].mean()
-
         plot_df = plot_df.sort_values(by=x_col)
 
     if len(plot_df) < 2:
@@ -322,11 +284,23 @@ def generate_trend_line_chart(
         plot_df = plot_df.iloc[::step]
 
     plot_df = plot_df.reset_index(drop=True)
-
     plot_df[y_col] = _clip_outliers(plot_df[y_col])
 
     x_values = list(range(len(plot_df)))
-    x_labels = plot_df[x_col].astype(str).tolist()
+
+    raw_x = plot_df[x_col]
+    if pd.api.types.is_datetime64_any_dtype(raw_x):
+        x_labels = raw_x.dt.strftime("%Y-%m-%d").tolist()
+    elif pd.api.types.is_numeric_dtype(raw_x):
+
+        coerced = pd.to_numeric(raw_x, errors="coerce")
+        if ((coerced >= 1900) & (coerced <= 2100)).all():
+            x_labels = coerced.astype(int).astype(str).tolist()
+        else:
+            x_labels = [f"{v:.2f}" if v != int(v) else str(int(v)) for v in coerced]
+    else:
+        x_labels = raw_x.astype(str).tolist()
+
     y_values = np.array(plot_df[y_col].tolist(), dtype=float)
 
     fig, ax = plt.subplots(figsize=(14, 6))
@@ -342,7 +316,6 @@ def generate_trend_line_chart(
     if show_confidence_interval and len(y_values) >= 4:
         x_arr = np.array(x_values, dtype=float)
         y_fit, ci_lower, ci_upper = _compute_ols_confidence_band(x_arr, y_values)
-
         if y_fit is not None:
             ax.plot(
                 x_values,
