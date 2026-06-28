@@ -159,11 +159,16 @@ def render_upload_layout():
         os.makedirs("outputs/reports", exist_ok=True)
         os.makedirs("data/cleaned", exist_ok=True)
         st.session_state.pop("pipeline_result", None)
+        st.session_state.pop("last_uploaded_filename", None)
         st.success("Cleared saved outputs and session results.")
 
     pipeline_result = st.session_state.get("pipeline_result")
 
     if pipeline_result:
+        last_filename = st.session_state.get("last_uploaded_filename", "Your dataset")
+        st.success(
+            f"{last_filename} processed successfully! Visit **Graphical Analytics**, **AI Deep Insights**, and **Analysis Report** pages to explore your results."
+        )
         st.info(
             "A dataset is already loaded and analysed. "
             "Click **Clear saved outputs** above to remove it and upload a new file."
@@ -188,12 +193,8 @@ def render_upload_layout():
                 result = pipeline.run_full_pipeline(uploaded_file.name, file_bytes)
 
             st.session_state["pipeline_result"] = result
-            st.success(
-                f" {uploaded_file.name} processed successfully! Visit **Graphical Analytics**, **AI Deep Insights**, and **Analysis Report** pages to explore your results."
-            )
-
-            st.markdown("### Dataset Summary")
-            st.write(result["metadata"].dict())
+            st.session_state["last_uploaded_filename"] = uploaded_file.name
+            st.rerun()
 
         except Exception as exc:
             st.error(f"Failed to process upload: {exc}")
