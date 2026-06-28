@@ -257,6 +257,13 @@ class PipelineService:
             "insight_text": insight_text,
             "report_path": pdf_path,
             "quality_report": quality_report,
+            "primary_metric": primary_metric,
+            "time_col": time_col,
+            "categorical_col": categorical_col,
+            "active_unit": active_unit,
+            "corr_method_label": corr_method_label,
+            "mixed_units_detected": plan.get("mixed_units_detected", False),
+            "metric_cols": plan.get("metric_cols", []),
         }
 
     def _build_insights_text(
@@ -289,7 +296,7 @@ class PipelineService:
             summary.append(f"* Analysis unit: **{active_unit}** (mixed units isolated)")
         if plan and plan.get("mixed_units_detected"):
             summary.append(
-                "* ⚠️ Mixed units detected in value column — analysis restricted to dominant unit type"
+                "* Mixed units detected in value column — analysis restricted to dominant unit type"
             )
         if plan and plan.get("is_long_format"):
             summary.append(
