@@ -92,7 +92,7 @@ Processing capacity mainly depends on available **RAM**.
 | 16 GB  |    3–4 Million Rows   |
 | 32+ GB |    5+ Million Rows    |
 
-1.1 Million records are fully supported.
+✅1.1 Million records are fully supported.
 
 ---
 
@@ -100,7 +100,7 @@ Processing capacity mainly depends on available **RAM**.
 
 AnalyticoGPT implements a rigorous, research-grade statistical pipeline. Every decision — from correlation method selection to chart type routing — is governed by formal statistical tests and principled mathematical criteria rather than hard-coded heuristics.
 
-### Descriptive Statistics
+### ---> Descriptive Statistics
 
 | Statistic | Formula / Definition | Purpose in Pipeline |
 |---|---|---|
@@ -111,7 +111,7 @@ AnalyticoGPT implements a rigorous, research-grade statistical pipeline. Every d
 | Excess Kurtosis | Fourth standardized moment minus 3 | Detects heavy tails and extreme outliers beyond standard deviation |
 | Min / Max | Boundary values | Range validation and outlier context |
 
-### Normality Testing Ensemble
+### ---> Normality Testing Ensemble
 
 Before selecting a correlation method, each numeric column is evaluated by a four-test ensemble. The result is determined by majority vote (3 of 4 must agree on normality).
 
@@ -122,7 +122,7 @@ Before selecting a correlation method, each numeric column is evaluated by a fou
 | Jarque-Bera | All n | Skewness plus kurtosis; valid at any sample size |
 | Anderson-Darling | All n (sampled at 10,000) | Tail-weighted distribution fit; more sensitive than KS test |
 
-### Correlation Method Selection
+### ---> Correlation Method Selection
 
 The dominant method across all numeric columns is applied to the entire matrix. Conservative hierarchy: Kendall overrides Spearman, Spearman overrides Pearson.
 
