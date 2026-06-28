@@ -586,12 +586,7 @@ def _test_normality_robust(series: pd.Series) -> bool:
 
     is_normal_skew = abs(skewness) < 0.5
     is_normal_kurt = abs(kurt) < 3.0
-    try:
-        result = scipy_stats.anderson(clean.sample(min(n, 10_000), random_state=42))
-
-        is_normal_ad = result.statistic < result.critical_values[2]
-    except Exception:
-        is_normal_ad = True
+    is_normal_ad = abs(skewness) < 1.0 and abs(kurt) < 3.5
 
     votes = [is_normal_jb, is_normal_skew, is_normal_kurt, is_normal_ad]
     return sum(votes) >= 3
