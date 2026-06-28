@@ -172,7 +172,7 @@ AnalyticoGPT is delivered as an **Agent-as-a-Service (AaaS)** application, enabl
 | 16 GB | 3–4 Million Rows |
 | 32+ GB | 5+ Million Rows |
 
-✅ 1.1 Million records are fully supported.
+✅ 5 Million records are fully supported.
 
 ---
 
