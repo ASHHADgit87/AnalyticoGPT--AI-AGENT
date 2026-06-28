@@ -161,6 +161,17 @@ def render_upload_layout():
         st.session_state.pop("pipeline_result", None)
         st.success("Cleared saved outputs and session results.")
 
+    pipeline_result = st.session_state.get("pipeline_result")
+
+    if pipeline_result:
+        st.info(
+            "A dataset is already loaded and analysed. "
+            "Click **Clear saved outputs** above to remove it and upload a new file."
+        )
+        st.markdown("### Dataset Summary")
+        st.write(pipeline_result["metadata"].dict())
+        return
+
     uploaded_file = st.file_uploader("Upload Target Tabular Dataset", type=["csv"])
 
     if uploaded_file is not None:
@@ -171,7 +182,9 @@ def render_upload_layout():
         try:
             file_bytes = uploaded_file.read()
             pipeline = PipelineService()
-            with st.spinner("Processing dataset through the full pipeline...; This may take upto 3-4 mintues depending upon the datasize..."):
+            with st.spinner(
+                "Processing dataset through the full pipeline...; This may take upto 3-4 mintues depending upon the datasize..."
+            ):
                 result = pipeline.run_full_pipeline(uploaded_file.name, file_bytes)
 
             st.session_state["pipeline_result"] = result
