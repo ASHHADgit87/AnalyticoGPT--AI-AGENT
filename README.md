@@ -4,6 +4,18 @@
 
 ---
 
+# Problem Statement 
+
+Modern datasets contain thousands to millions of complex rows, making manual data preparation and relationship tracking virtually impossible.
+
+Users lack an automated, unified system capable of running end-to-end data engineering, statistical profiling, and predictive forecasting.
+
+Traditional BI pipelines demand extensive technical expertise and cross-tool jumping, creating massive bottlenecks for rapid executive decision-making.
+
+AnalyticoGPT bridges this gap via a Google ADK and Gemini-powered multi-agent pipeline that instantly converts raw CSVs into boardroom-ready reports.
+
+---
+
 # Google ADK Integration
 
 AnalyticoGPT uses **Google Agent Development Kit (ADK)** to orchestrate an intelligent multi-agent analytics pipeline.
