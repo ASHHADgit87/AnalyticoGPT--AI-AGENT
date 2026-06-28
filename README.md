@@ -132,11 +132,11 @@ The dominant method across all numeric columns is applied to the entire matrix. 
 | Non-normal or skewed | Spearman Rank | Ranks values before correlation; robust to outliers and monotonic non-linearity |
 | Normal, n >= 30 | Pearson r | Measures linear co-movement between normally distributed continuous variables |
 
-### Pairwise Minimum Overlap Enforcement
+### ---> Pairwise Minimum Overlap Enforcement
 
 Before computing any pairwise correlation, the pipeline counts rows where both columns are simultaneously non-null. Pairs with fewer than 20 shared observations are set to 0 to prevent spurious correlations driven by sparse data.
 
-### Outlier Detection — Tukey IQR Fence
+### ---> Outlier Detection — Tukey IQR Fence
 
 IQR = Q3 - Q1
 
@@ -146,7 +146,7 @@ Upper fence = Q3 + 1.5 * IQR
 
 Values outside these fences are classified as outliers. Used in the data quality score and descriptive statistics summary. For visualization, values are clipped to the 1st–99th percentile to prevent a single extreme value from compressing the entire chart.
 
-### OLS Linear Regression and Confidence Interval
+### ---> OLS Linear Regression and Confidence Interval
 
 The trend line chart fits an Ordinary Least Squares regression using closed-form normal equations:
 
@@ -162,7 +162,7 @@ CI = y_fit +/- t* * s * sqrt(1/n + (x - x_mean)^2 / SSxx)
 
 where s is the residual standard error and t\* is the t-critical value at n-2 degrees of freedom. This is a true regression confidence interval, not a rolling average band.
 
-### Primary Metric Information Score
+### ---> Primary Metric Information Score
 
 Each candidate metric column is ranked by a composite information score rather than keyword matching or raw magnitude:
 
@@ -174,7 +174,7 @@ Each candidate metric column is ranked by a composite information score rather t
 | Keyword bonus | Additive | Domain terms (revenue, sales, profit, etc.) add a fixed bonus |
 | Time correlation | Additive | abs(corr with time column) * 10 |
 
-### Data Quality Scoring
+### ---> Data Quality Scoring
 
 Five dimensions are independently scored 0–100 and combined into a weighted final score:
 
@@ -188,7 +188,7 @@ Five dimensions are independently scored 0–100 and combined into a weighted fi
 
 Final score maps to a star rating (1–5) and badge: Excellent (90+), Good (75+), Fair (60+), Poor (40+), Critical (below 40).
 
-### Long-to-Wide Format Pivot
+### ---> Long-to-Wide Format Pivot
 
 Long-format datasets (one row per metric observation) are automatically detected and reshaped using a pivot table:
 
@@ -196,13 +196,13 @@ pivot_table(index=time_col, columns=variable_col, values=value_col, aggfunc='mea
 
 When the pivot produces more than 20 metric columns, columns are ranked by variance and the top 20 are retained. Variance directly quantifies analytical signal — low-variance columns are dropped.
 
-### Period-over-Period Growth Rate
+### ---> Period-over-Period Growth Rate
 
 growth_rate = (current - previous) / previous * 100
 
 Applied across consecutive time steps using pct_change() to identify top-growth periods regardless of absolute magnitude.
 
-### Percentile Rank
+### ---> Percentile Rank
 
 Each row's metric value is ranked relative to all other rows:
 
@@ -210,7 +210,7 @@ percentile_rank = rank(pct=True) * 100
 
 A score of 95 means that row's value exceeds 95% of all other observations. Used in the performer analysis report.
 
-### 14-Case Visualization Decision Matrix
+### ---> 14-Case Visualization Decision Matrix
 
 Chart type is selected deterministically based on data structure profiling, not user input.
 
