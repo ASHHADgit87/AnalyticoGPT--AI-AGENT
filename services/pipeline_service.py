@@ -239,6 +239,7 @@ class PipelineService:
             title="AnalyticoGPT Pipeline Data Analysis Report",
             summary=insight_text,
             records=top_performers,
+            quality_report=quality_report,
         )
 
         metadata.summary_statistics = descriptive_stats
@@ -426,6 +427,8 @@ class PipelineService:
             f"**Charts Generated:** {chart_context_str}\n\n"
             f"Write a professional, specific, data-driven analytical narrative (4–6 paragraphs) "
             f"using the actual variable names and numbers above. Do not use placeholder brackets. "
+            f"Do not use any markdown symbols like **, *, ##, or # in your response. "
+            f"Write in plain professional prose only. "
             f"Highlight key patterns, strongest correlations, outliers, data quality issues, "
             f"forecast direction, top and bottom performers, and actionable insights. "
             f"Reference skewness and kurtosis where relevant. "
@@ -440,7 +443,8 @@ class PipelineService:
 
         try:
             ai_output = fetch_gemini_structural_completion(
-                prompt, system_instruction="You are a professional data analyst."
+                prompt,
+                system_instruction="You are a professional data analyst. Never use markdown symbols like **, *, #, or ## in your response. Write in plain prose only.",
             )
             return "\n".join(summary + ["### AI Narrative Insights", ai_output])
         except Exception:
