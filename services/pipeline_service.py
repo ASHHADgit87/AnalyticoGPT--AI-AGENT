@@ -137,6 +137,7 @@ class PipelineService:
 
         cleaned_df = standardize_column_names(df)
         cleaned_df = fill_numeric_defaults(cleaned_df)
+        print("COLUMNS AFTER CLEAN:", cleaned_df.columns.tolist())
         cleaned_path = self.dataset_service.save_cleaned_dataset(cleaned_df, file_name)
 
         quality_report = compute_data_quality_score(cleaned_df)
