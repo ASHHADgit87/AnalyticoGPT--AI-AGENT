@@ -21,16 +21,66 @@ def _coerce_numeric_series(series: pd.Series) -> pd.Series:
     return pd.to_numeric(cleaned, errors="coerce")
 
 
+def _is_string_col(series: pd.Series) -> bool:
+    """Return True for both legacy object dtype and new pandas StringDtype."""
+    dtype_str = str(series.dtype).lower()
+    return (
+        series.dtype == object
+        or dtype_str in ("string", "str")
+        or "string" in dtype_str
+    )
+
+
 def _is_id_like_column(col_name: str, series: pd.Series) -> bool:
     """Detect ID/code columns that look numeric but are identifiers."""
+    import re as _re
+
     lower = col_name.lower()
-    id_tokens = ["id", "code", "zip", "postal", "phone", "fax", "sku", "barcode"]
-    if any(t in lower for t in id_tokens):
+
+    id_structural_patterns = [
+        r"number$",
+        r"_num$",
+        r"_no$",
+        r"_nbr$",
+        r"_ref$",
+        r"_key$",
+        r"_id$",
+        r"^id_",
+        r"\bid\b",
+        r"\bcode\b",
+        r"\bzip\b",
+        r"\bpostal\b",
+        r"\bphone\b",
+        r"\bfax\b",
+        r"\bsku\b",
+        r"\bbarcode\b",
+    ]
+    if any(_re.search(tok, lower) for tok in id_structural_patterns):
         return True
+
+    metric_keywords = [
+        "value",
+        "amount",
+        "revenue",
+        "sales",
+        "profit",
+        "income",
+        "cost",
+        "price",
+        "score",
+        "count",
+        "total",
+        "sum",
+        "avg",
+        "mean",
+    ]
+    if any(kw in lower for kw in metric_keywords):
+        return False
     coerced = _coerce_numeric_series(series).dropna()
     if coerced.empty:
         return False
-    if coerced.nunique() == len(coerced) and coerced.min() >= 0:
+
+    if len(coerced) > 50 and coerced.nunique() == len(coerced) and coerced.min() >= 0:
         if (coerced == coerced.astype(int)).all():
             return True
     return False
@@ -48,6 +98,9 @@ def _is_metadata_like_column(col_name: str) -> bool:
         "sample_error",
         "sampling_error",
         "relative_sampling",
+        "account",
+        "product_type",
+        "type_of",
     ]
     return any(token in lower for token in ignored_tokens)
 
@@ -58,6 +111,16 @@ def _is_meaningful_numeric_column(
     """True if column is a genuine metric: numeric, non-constant, non-ID, non-metadata."""
     if pd.api.types.is_datetime64_any_dtype(series):
         return False
+
+    lower_col = col_name.lower()
+    date_name_tokens = ["date", "datetime", "timestamp", "time", "received", "reported"]
+    if any(t in lower_col for t in date_name_tokens):
+
+        coerced_check = _coerce_numeric_series(series).dropna()
+        if not coerced_check.empty:
+            parsed = pd.to_datetime(series, errors="coerce")
+            if parsed.notna().sum() / max(len(series.dropna()), 1) >= 0.5:
+                return False
     if _is_metadata_like_column(col_name):
         return False
     if _is_id_like_column(col_name, series):
@@ -219,7 +282,7 @@ def detect_long_format(df: pd.DataFrame) -> Dict[str, Any]:
             if valid_ratio >= 0.3:
                 value_candidates.append(col)
 
-        if series.dtype == object and 5 <= series.nunique() <= 300:
+        if _is_string_col(series) and 5 <= series.nunique() <= 300:
             if any(
                 tok in lower
                 for tok in ["variable", "metric", "indicator", "measure", "series"]
@@ -227,7 +290,7 @@ def detect_long_format(df: pd.DataFrame) -> Dict[str, Any]:
                 variable_candidates.append(col)
 
         if any(tok in lower for tok in ["unit", "units", "currency", "denomination"]):
-            if series.dtype == object and 1 <= series.nunique() <= 30:
+            if _is_string_col(series) and 1 <= series.nunique() <= 30:
                 unit_candidates.append(col)
 
         if any(
@@ -254,7 +317,7 @@ def detect_long_format(df: pd.DataFrame) -> Dict[str, Any]:
                 "segment",
             ]
         ):
-            if series.dtype == object and 2 <= series.nunique() <= 200:
+            if _is_string_col(series) and 2 <= series.nunique() <= 200:
                 category_candidates.append(col)
 
     if value_candidates and (variable_candidates or unit_candidates):
@@ -327,7 +390,7 @@ def detect_unit_column(df: pd.DataFrame) -> Optional[str]:
     for col in df.columns:
         lower = col.lower()
         if any(t in lower for t in ["unit", "units", "measure", "denomination"]):
-            if df[col].dtype == object and 1 <= df[col].nunique() <= 30:
+            if _is_string_col(df[col]) and 1 <= df[col].nunique() <= 30:
                 return col
     return None
 
@@ -467,7 +530,7 @@ def detect_temporal_column(
                     candidates.append((col, 70, coerced.nunique()))
                     continue
 
-        if series.dtype == object:
+        if _is_string_col(series):
             if any(t in lower for t in ["year", "month", "quarter", "period", "time"]):
                 if series.nunique() >= 2:
                     candidates.append((col, 60, series.nunique()))
@@ -759,6 +822,33 @@ def build_chart_plan(df: pd.DataFrame) -> Dict[str, Any]:
     )
 
     if n_numeric == 0 or primary_metric is None:
+
+        cat_col = _find_categorical_col(analysis_df, None, time_col)
+        if (
+            cat_col
+            and cat_col in analysis_df.columns
+            and analysis_df[cat_col].nunique() >= 2
+        ):
+            count_col = "__row_count__"
+            analysis_df = analysis_df.copy()
+            analysis_df[count_col] = 1
+            return {
+                "analysis_df": analysis_df,
+                "active_unit": active_unit,
+                "primary_metric": count_col,
+                "metric_cols": [count_col],
+                "time_col": time_col,
+                "categorical_col": cat_col,
+                "feature_col": None,
+                "generate_heatmap": False,
+                "generate_trend": False,
+                "generate_bar": True,
+                "trend_x": None,
+                "bar_x": cat_col,
+                "is_long_format": long_info["is_long"],
+                "mixed_units_detected": mixed_units,
+                "correlation_method": "pearson",
+            }
         return _no_charts_plan(analysis_df, active_unit)
 
     if n_numeric == 1 and not time_col and not categorical_col:
@@ -911,13 +1001,22 @@ def _find_categorical_col(
         if _is_metadata_like_column(col):
             continue
         series = df[col]
-        if series.dtype == object or str(series.dtype) == "category":
-            n_unique = series.nunique()
-            if 2 <= n_unique <= 200:
-                candidates.append((col, n_unique, "text"))
-        elif pd.api.types.is_numeric_dtype(series):
-            n_unique = series.nunique()
+        n_unique = series.nunique()
+        n_rows = max(len(df), 1)
 
+        if _is_string_col(series) or str(series.dtype) == "category":
+            if n_unique < 2:
+                continue
+            if n_unique == n_rows:
+                continue
+            if _is_id_like_column(col, series):
+                continue
+            score = _categorical_usefulness_score(n_unique, n_rows)
+            candidates.append((col, n_unique, score, "text"))
+
+        elif pd.api.types.is_numeric_dtype(series):
+            if _is_id_like_column(col, series):
+                continue
             lower = col.lower()
             is_ordinal_like = any(
                 t in lower
@@ -937,19 +1036,37 @@ def _find_categorical_col(
             if is_ordinal_like:
                 continue
             if 2 <= n_unique <= 20:
-                candidates.append((col, n_unique, "numeric"))
+                score = _categorical_usefulness_score(n_unique, n_rows)
+                candidates.append((col, n_unique, score, "numeric"))
 
     if not candidates:
         return None
 
-    text_cats = [(c, n) for c, n, t in candidates if t == "text"]
-    num_cats = [(c, n) for c, n, t in candidates if t == "numeric"]
+    text_cats = [(c, n, s) for c, n, s, t in candidates if t == "text"]
+    num_cats = [(c, n, s) for c, n, s, t in candidates if t == "numeric"]
 
     if text_cats:
-        text_cats.sort(key=lambda x: x[1])
+        text_cats.sort(key=lambda x: x[2], reverse=True)
         return text_cats[0][0]
-    num_cats.sort(key=lambda x: x[1])
+    num_cats.sort(key=lambda x: x[2], reverse=True)
     return num_cats[0][0] if num_cats else None
+
+
+def _categorical_usefulness_score(n_unique: int, n_rows: int) -> float:
+    """
+    Score how useful a categorical column is for a bar chart.
+    Peaks at moderate cardinality (10-50 unique values).
+    Penalises both extremes: too few unique (structural label) and too many (ID-like).
+    """
+    ratio = n_unique / max(n_rows, 1)
+
+    if n_unique <= 3 and n_rows > 50:
+        return float(n_unique) * 0.1
+
+    if ratio > 0.5:
+        return 1.0 / ratio
+
+    return float(min(n_unique, 100))
 
 
 def _find_feature_col(
