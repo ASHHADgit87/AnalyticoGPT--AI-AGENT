@@ -287,7 +287,9 @@ def detect_long_format(df: pd.DataFrame) -> Dict[str, Any]:
                 tok in lower
                 for tok in ["variable", "metric", "indicator", "measure", "series"]
             ):
-                variable_candidates.append(col)
+
+                priority = 0 if "name" in lower else (2 if "code" in lower else 1)
+                variable_candidates.append((col, priority))
 
         if any(tok in lower for tok in ["unit", "units", "currency", "denomination"]):
             if _is_string_col(series) and 1 <= series.nunique() <= 30:
@@ -323,11 +325,15 @@ def detect_long_format(df: pd.DataFrame) -> Dict[str, Any]:
     if value_candidates and (variable_candidates or unit_candidates):
         result["is_long"] = True
         result["value_col"] = value_candidates[0]
-        result["variable_col"] = variable_candidates[0] if variable_candidates else None
+        if variable_candidates:
+            variable_candidates.sort(key=lambda x: x[1])
+            result["variable_col"] = variable_candidates[0][0]
+        else:
+            result["variable_col"] = None
         result["unit_col"] = unit_candidates[0] if unit_candidates else None
         result["time_col"] = time_candidates[0] if time_candidates else None
         result["category_col"] = category_candidates[0] if category_candidates else None
-
+    print("LONG FORMAT DETECTED:", result)
     return result
 
 
@@ -1007,7 +1013,7 @@ def _find_categorical_col(
         if _is_string_col(series) or str(series.dtype) == "category":
             if n_unique < 2:
                 continue
-            if n_unique == n_rows:
+            if n_unique > min(n_rows * 0.95, 500):
                 continue
             if _is_id_like_column(col, series):
                 continue
@@ -1053,18 +1059,16 @@ def _find_categorical_col(
 
 
 def _categorical_usefulness_score(n_unique: int, n_rows: int) -> float:
-    """
-    Score how useful a categorical column is for a bar chart.
-    Peaks at moderate cardinality (10-50 unique values).
-    Penalises both extremes: too few unique (structural label) and too many (ID-like).
-    """
     ratio = n_unique / max(n_rows, 1)
 
     if n_unique <= 3 and n_rows > 50:
         return float(n_unique) * 0.1
 
-    if ratio > 0.5:
+    if ratio > 0.95:
         return 1.0 / ratio
+
+    if 10 <= n_unique <= 150:
+        return 100.0 - abs(n_unique - 50) * 0.3
 
     return float(min(n_unique, 100))
 
