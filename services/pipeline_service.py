@@ -201,8 +201,13 @@ class PipelineService:
             bar_x = plan["bar_x"]
             if bar_x in analysis_df.columns and primary_metric in analysis_df.columns:
                 try:
-                    skew_val = abs(float(analysis_df[primary_metric].dropna().skew()))
-                    agg = "median" if skew_val > 1.0 else "mean"
+                    if primary_metric == "__row_count__":
+                        agg = "mean"
+                    else:
+                        skew_val = abs(
+                            float(analysis_df[primary_metric].dropna().skew())
+                        )
+                        agg = "median" if skew_val > 1.0 else "mean"
                 except Exception:
                     agg = "mean"
 
