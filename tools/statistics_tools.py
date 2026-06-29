@@ -332,7 +332,14 @@ def detect_long_format(df: pd.DataFrame) -> Dict[str, Any]:
             result["variable_col"] = None
         result["unit_col"] = unit_candidates[0] if unit_candidates else None
         result["time_col"] = time_candidates[0] if time_candidates else None
-        result["category_col"] = category_candidates[0] if category_candidates else None
+        if category_candidates:
+            category_candidates.sort(
+                key=lambda c: _categorical_usefulness_score(df[c].nunique(), len(df)),
+                reverse=True,
+            )
+            result["category_col"] = category_candidates[0]
+        else:
+            result["category_col"] = None
     print("LONG FORMAT DETECTED:", result)
     return result
 
@@ -795,6 +802,8 @@ def build_chart_plan(df: pd.DataFrame) -> Dict[str, Any]:
 
     analysis_df = df.copy()
     metric_cols = numeric_cols.copy()
+    bar_source_df = df.copy()
+    long_cat = None
 
     if long_info["is_long"]:
         if long_info["unit_col"]:
@@ -804,6 +813,25 @@ def build_chart_plan(df: pd.DataFrame) -> Dict[str, Any]:
         n_numeric = len(numeric_cols)
         time_col = detect_temporal_column(analysis_df)
         metric_cols = [c for c in numeric_cols if c != time_col]
+
+        _lc = long_info.get("category_col")
+        if (
+            _lc
+            and _lc in df.columns
+            and _is_string_col(df[_lc])
+            and 2 <= df[_lc].nunique() <= 500
+        ):
+            long_cat = _lc
+            bar_source_df = df.copy()
+            if long_info.get("unit_col") and active_unit:
+                bar_source_df = bar_source_df[
+                    bar_source_df[long_info["unit_col"]] == active_unit
+                ]
+            bar_source_df[long_info["value_col"]] = _coerce_numeric_series(
+                bar_source_df[long_info["value_col"]]
+            )
+        else:
+            bar_source_df = analysis_df
     else:
         if unit_col:
             value_col = _find_value_col(df)
@@ -814,9 +842,14 @@ def build_chart_plan(df: pd.DataFrame) -> Dict[str, Any]:
                     numeric_cols = get_numeric_columns(analysis_df)
                     n_numeric = len(numeric_cols)
                     metric_cols = numeric_cols.copy()
+        bar_source_df = analysis_df
 
     primary_metric = _choose_primary_metric(analysis_df, metric_cols, time_col)
-    categorical_col = _find_categorical_col(analysis_df, primary_metric, time_col)
+    categorical_col = (
+        long_cat
+        if long_cat
+        else _find_categorical_col(analysis_df, primary_metric, time_col)
+    )
     feature_col = (
         time_col if time_col else _find_feature_col(analysis_df, primary_metric)
     )
@@ -875,10 +908,17 @@ def build_chart_plan(df: pd.DataFrame) -> Dict[str, Any]:
         and time_col in analysis_df.columns
         and analysis_df[time_col].nunique() >= 2
     )
-    has_categorical = (
-        categorical_col is not None
-        and categorical_col in analysis_df.columns
-        and analysis_df[categorical_col].nunique() >= 2
+    has_categorical = categorical_col is not None and (
+        (
+            categorical_col in analysis_df.columns
+            and analysis_df[categorical_col].nunique() >= 2
+        )
+        or (
+            long_cat is not None
+            and categorical_col == long_cat
+            and long_cat in bar_source_df.columns
+            and bar_source_df[long_cat].nunique() >= 2
+        )
     )
     is_ordered_cat = (
         detect_ordered_categorical(analysis_df, categorical_col)
@@ -962,6 +1002,9 @@ def build_chart_plan(df: pd.DataFrame) -> Dict[str, Any]:
         "is_long_format": long_info["is_long"],
         "mixed_units_detected": mixed_units,
         "correlation_method": corr_method,
+        "bar_source_df": bar_source_df if long_info["is_long"] else analysis_df,
+        "long_cat": long_cat if long_info["is_long"] else None,
+        "long_value_col": long_info.get("value_col") if long_info["is_long"] else None,
     }
 
 
