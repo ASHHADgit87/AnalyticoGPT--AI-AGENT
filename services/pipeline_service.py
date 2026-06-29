@@ -198,24 +198,35 @@ class PipelineService:
                     analysis_df, trend_x, primary_metric, steps=5
                 )
 
-        if plan["generate_bar"] and primary_metric and plan["bar_x"]:
-            bar_x = plan["bar_x"]
-            if bar_x in analysis_df.columns and primary_metric in analysis_df.columns:
+        if plan["generate_bar"] and plan["bar_x"]:
+            bar_source_df = plan.get("bar_source_df", analysis_df)
+            long_cat = plan.get("long_cat")
+            bar_x = (
+                long_cat
+                if long_cat and long_cat in bar_source_df.columns
+                else plan["bar_x"]
+            )
+            bar_metric = (
+                plan.get("long_value_col")
+                if long_cat
+                and plan.get("long_value_col")
+                and plan.get("long_value_col") in bar_source_df.columns
+                else primary_metric
+            )
+            if bar_x in bar_source_df.columns and bar_metric in bar_source_df.columns:
                 try:
-                    if primary_metric == "__row_count__":
+                    if bar_metric == "__row_count__":
                         agg = "mean"
                     else:
-                        skew_val = abs(
-                            float(analysis_df[primary_metric].dropna().skew())
-                        )
+                        skew_val = abs(float(bar_source_df[bar_metric].dropna().skew()))
                         agg = "median" if skew_val > 1.0 else "mean"
                 except Exception:
                     agg = "mean"
 
                 bar_path = generate_bar_chart(
-                    analysis_df,
+                    bar_source_df,
                     bar_x,
-                    primary_metric,
+                    bar_metric,
                     output_dir=self.chart_dir,
                     unit_label=active_unit,
                     aggregation=agg,
