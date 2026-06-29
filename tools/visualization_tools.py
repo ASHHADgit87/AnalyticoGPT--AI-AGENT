@@ -49,7 +49,10 @@ def generate_bar_chart(
     plot_df[y_col] = _coerce_numeric(plot_df[y_col])
     plot_df = plot_df.dropna(subset=[x_col, y_col])
 
-    if plot_df.empty or len(plot_df) < 2 or plot_df[y_col].nunique() < 2:
+    if plot_df.empty or len(plot_df) < 2:
+        return ""
+
+    if y_col != "__row_count__" and plot_df[y_col].nunique() < 2:
         return ""
 
     n_unique = plot_df[x_col].nunique()
@@ -57,22 +60,31 @@ def generate_bar_chart(
         top_cats = plot_df[x_col].value_counts().head(20).index
         plot_df = plot_df[plot_df[x_col].isin(top_cats)]
 
-    agg_func = "median" if aggregation == "median" else "mean"
-    plot_df = (
-        plot_df.groupby(x_col, as_index=False)[y_col]
-        .agg(agg_func)
-        .sort_values(by=y_col, ascending=False)
-        .head(20)
-    )
+    if y_col == "__row_count__":
+        plot_df = (
+            plot_df.groupby(x_col, as_index=False)[y_col]
+            .sum()
+            .sort_values(by=y_col, ascending=False)
+            .head(20)
+        )
+    else:
+        agg_func = "median" if aggregation == "median" else "mean"
+        plot_df = (
+            plot_df.groupby(x_col, as_index=False)[y_col]
+            .agg(agg_func)
+            .sort_values(by=y_col, ascending=False)
+            .head(20)
+        )
 
     if plot_df.empty:
         return ""
 
     plot_df[y_col] = _clip_outliers(plot_df[y_col])
 
-    y_range = plot_df[y_col].max() - plot_df[y_col].min()
-    if y_range < 1e-6:
-        return ""
+    if y_col != "__row_count__":
+        y_range = plot_df[y_col].max() - plot_df[y_col].min()
+        if y_range < 1e-6:
+            return ""
 
     fig, ax = plt.subplots(figsize=(14, 6))
     fig.patch.set_facecolor("#08090f")
@@ -103,10 +115,14 @@ def generate_bar_chart(
 
     plt.xticks(rotation=45, ha="right", fontsize=8)
     plt.xlabel(x_col, fontsize=10, color="#f3f4f6")
-    y_label = f"{y_col} ({unit_label})" if unit_label else y_col
-    agg_display = "Median" if agg_func == "median" else "Mean"
-    plt.ylabel(f"{agg_display} {y_label}", fontsize=10, color="#f3f4f6")
-    title = f"{y_col} by {x_col}"
+    if y_col == "__row_count__":
+        display_y = "Count"
+        agg_display = "Total"
+    else:
+        display_y = f"{y_col} ({unit_label})" if unit_label else y_col
+        agg_display = "Median" if agg_func == "median" else "Mean"
+    plt.ylabel(f"{agg_display} {display_y}", fontsize=10, color="#f3f4f6")
+    title = f"{'Record Count' if y_col == '__row_count__' else y_col} by {x_col}"
     if unit_label:
         title += f"  [{unit_label}]"
     plt.title(title, color="#f3f4f6", fontsize=12, pad=10)
