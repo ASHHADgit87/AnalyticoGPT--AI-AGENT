@@ -166,6 +166,8 @@ def _trend_explanation(pipeline_result: dict) -> str:
 
 def _bar_explanation(pipeline_result: dict) -> str:
     primary_metric = pipeline_result.get("primary_metric", "the metric")
+    if primary_metric == "__row_count__":
+        primary_metric = "record count"
     cat_col = pipeline_result.get("categorical_col", "the category")
     active_unit = pipeline_result.get("active_unit", "")
     descriptive_stats = pipeline_result.get("descriptive_stats", {})
@@ -189,17 +191,21 @@ def _bar_explanation(pipeline_result: dict) -> str:
                 f"so bars represent the mean value per group. "
                 f"The mean is appropriate here because the distribution is not heavily distorted by outliers."
             )
-
+    metric_display = (
+        "record count"
+        if pipeline_result.get("primary_metric") == "__row_count__"
+        else primary_metric
+    )
     lines = [
-        f"Each bar in this chart shows the aggregated {primary_metric}{unit_note} for a distinct value of {cat_col}.",
+        f"Each bar in this chart shows the {metric_display}{unit_note} for a distinct value of {cat_col}.",
         f"Bars are sorted from highest to lowest so the top-performing groups appear on the left, making it easy to rank categories at a glance.",
         "If your dataset had more than 20 unique categories, only the top 20 by row frequency are shown to prevent label overcrowding and keep the chart readable.",
         "The color alternates across bars purely for visual separation — it does not encode any additional data dimension.",
-        skew_note,
+        skew_note if skew_note else None,
         "Use this chart to quickly compare which groups or categories perform best or worst on the selected metric and to identify outlier groups that deviate significantly from the overall average.",
     ]
 
-    return "\n".join(f"- {line}" for line in lines)
+    return "\n".join(f"- {line}" for line in lines if line)
 
 
 def render_charts_layout():
