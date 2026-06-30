@@ -883,10 +883,7 @@ def build_chart_plan(df: pd.DataFrame) -> Dict[str, Any]:
                 _sliced = bar_source_df[
                     bar_source_df[long_info["unit_col"]] == active_unit
                 ]
-                # ── FIX: if slicing to the dominant unit collapses category
-                # diversity (e.g. each unit type maps to ~1 group), fall back
-                # to the full unsliced dataframe so the bar chart still has
-                # genuine category variance to display, dynamically for any dataset.
+
                 if _sliced[_lc].nunique() >= 2:
                     bar_source_df = _sliced
             bar_source_df[long_info["value_col"]] = _coerce_numeric_series(
