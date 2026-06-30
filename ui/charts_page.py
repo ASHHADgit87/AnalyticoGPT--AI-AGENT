@@ -247,6 +247,9 @@ def render_charts_layout():
     )
 
     charts_canvas = """
+    <style>
+        html, body { margin:0; padding:0; overflow:hidden; }
+    </style>
     <div id="charts-container" style="width:100%;height:200px;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#0d0e15 0%,#1a1c29 100%);"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
