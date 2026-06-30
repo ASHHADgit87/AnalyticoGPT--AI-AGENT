@@ -43,6 +43,8 @@ def _is_id_like_column(col_name: str, series: pd.Series) -> bool:
         r"_no$",
         r"_nbr$",
         r"_ref$",
+        r"reference",
+        r"_series",
         r"_key$",
         r"_id$",
         r"^id_",
@@ -122,7 +124,6 @@ def _is_meaningful_numeric_column(
             if parsed.notna().sum() / max(len(series.dropna()), 1) >= 0.5:
                 return False
 
-    
     if _is_ordinal_temporal_col(col_name):
         return False
     if _is_metadata_like_column(col_name):
@@ -804,6 +805,7 @@ _ORDINAL_TOKENS = [
     "quarter",
     "day",
     "period",
+    "date",
 ]
 
 
