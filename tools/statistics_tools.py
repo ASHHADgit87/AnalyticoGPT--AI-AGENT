@@ -121,6 +121,10 @@ def _is_meaningful_numeric_column(
             parsed = pd.to_datetime(series, errors="coerce")
             if parsed.notna().sum() / max(len(series.dropna()), 1) >= 0.5:
                 return False
+
+    
+    if _is_ordinal_temporal_col(col_name):
+        return False
     if _is_metadata_like_column(col_name):
         return False
     if _is_id_like_column(col_name, series):
@@ -799,6 +803,7 @@ _ORDINAL_TOKENS = [
     "second",
     "quarter",
     "day",
+    "period",
 ]
 
 
@@ -873,9 +878,15 @@ def build_chart_plan(df: pd.DataFrame) -> Dict[str, Any]:
             long_cat = _lc
             bar_source_df = df.copy()
             if long_info.get("unit_col") and active_unit:
-                bar_source_df = bar_source_df[
+                _sliced = bar_source_df[
                     bar_source_df[long_info["unit_col"]] == active_unit
                 ]
+                # ── FIX: if slicing to the dominant unit collapses category
+                # diversity (e.g. each unit type maps to ~1 group), fall back
+                # to the full unsliced dataframe so the bar chart still has
+                # genuine category variance to display, dynamically for any dataset.
+                if _sliced[_lc].nunique() >= 2:
+                    bar_source_df = _sliced
             bar_source_df[long_info["value_col"]] = _coerce_numeric_series(
                 bar_source_df[long_info["value_col"]]
             )
