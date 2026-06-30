@@ -1,4 +1,5 @@
 import os
+import re
 import textwrap
 from typing import Optional
 
@@ -127,7 +128,12 @@ def generate_bar_chart(
         title += f"  [{unit_label}]"
     plt.title(title, color="#f3f4f6", fontsize=12, pad=10)
 
-    target_file = os.path.join(output_dir, f"{x_col}_vs_{y_col}_bar.png")
+    def _sanitize(s: str) -> str:
+        return re.sub(r'[\\/:*?"<>|]', "_", str(s))[:80]
+
+    target_file = os.path.join(
+        output_dir, f"{_sanitize(x_col)}_vs_{_sanitize(y_col)}_bar.png"
+    )
     plt.savefig(target_file, dpi=200, bbox_inches="tight", facecolor="#08090f")
     plt.close()
     return target_file
@@ -396,7 +402,12 @@ def generate_trend_line_chart(
             fontsize=8,
         )
 
-    target_file = os.path.join(output_dir, f"{x_col}_vs_{y_col}_trend.png")
+    def _sanitize(s: str) -> str:
+        return re.sub(r'[\\/:*?"<>|]', "_", str(s))[:80]
+
+    target_file = os.path.join(
+        output_dir, f"{_sanitize(x_col)}_vs_{_sanitize(y_col)}_trend.png"
+    )
     plt.savefig(target_file, dpi=200, bbox_inches="tight", facecolor="#08090f")
     plt.close()
     return target_file
