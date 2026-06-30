@@ -739,10 +739,32 @@ def _score_metric_column(df: pd.DataFrame, col: str, time_col: Optional[str]) ->
     elif any(k in lower for k in medium_value_keywords):
         keyword_bonus = 15.0
 
+    name_tokens = [t for t in re.split(r"[_\s]+", lower) if t]
+    if name_tokens:
+        is_short_name = len(name_tokens) <= 5
+        keyword_is_terminal_or_leading = any(
+            k == name_tokens[-1] for k in high_value_keywords + medium_value_keywords
+        ) or any(
+            k == name_tokens[0] for k in high_value_keywords + medium_value_keywords
+        )
+        if is_short_name and keyword_is_terminal_or_leading:
+            keyword_bonus += 20.0
+        elif len(name_tokens) > 8:
+
+            keyword_bonus = max(keyword_bonus - 10.0, 0.0)
+
     mean_val = float(s.mean())
     std_val = float(s.std(ddof=0))
     cv = (std_val / abs(mean_val)) if abs(mean_val) > 1e-9 else std_val
     cv_score = min(cv * 20, 40.0)
+
+    abs_skew = abs(float(s.skew())) if s.nunique() > 2 else 0.0
+    abs_kurt = abs(float(s.kurtosis())) if s.nunique() > 2 else 0.0
+    if abs_skew > 1.0 or abs_kurt > 3.0:
+        damp_factor = 1.0 / (
+            1.0 + max(abs_skew - 1.0, 0.0) + max(abs_kurt - 3.0, 0.0) * 0.3
+        )
+        cv_score = cv_score * damp_factor
 
     null_ratio = s.size / max(len(df), 1)
     completeness_score = null_ratio * 20.0
