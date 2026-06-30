@@ -518,13 +518,16 @@ def detect_temporal_column(
         if any(t in lower for t in ["date", "datetime", "timestamp"]):
 
             sample_vals = series.dropna().astype(str).head(20)
+
             looks_like_date_string = (
-                sample_vals.str.match(r"^\d{4}[-/]\d{1,2}([-/]\d{1,2})?").sum() >= 2
+                sample_vals.str.match(r"^\d{4}[-/]\d{1,2}([-/]\d{1,2})?$").sum() >= 2
+                or sample_vals.str.match(r"^\d{1,2}/\d{1,2}/\d{4}$").sum() >= 2
+                or sample_vals.str.match(r"^\d{1,2}-\d{1,2}-\d{4}$").sum() >= 2
             )
             if looks_like_date_string:
                 parsed = pd.to_datetime(series, errors="coerce")
                 if parsed.notna().sum() >= 2:
-                    candidates.append((col, 90, parsed.nunique()))
+                    candidates.append((col, 95, parsed.nunique()))
                     continue
 
         if pd.api.types.is_numeric_dtype(series):
@@ -784,15 +787,39 @@ def _score_metric_column(df: pd.DataFrame, col: str, time_col: Optional[str]) ->
     return keyword_bonus + cv_score + completeness_score + time_corr_score
 
 
+_ORDINAL_TOKENS = [
+    "year",
+    "month",
+    "day_of_week",
+    "day_of_month",
+    "day_of_year",
+    "week",
+    "hour",
+    "minute",
+    "second",
+    "quarter",
+    "day",
+]
+
+
+def _is_ordinal_temporal_col(col_name: str) -> bool:
+    lower = col_name.lower()
+    return any(t in lower for t in _ORDINAL_TOKENS)
+
+
 def _choose_primary_metric(
     df: pd.DataFrame,
     metric_cols: List[str],
     time_col: Optional[str],
 ) -> Optional[str]:
-    """Score-based primary metric selection — skips binary/near-binary columns."""
+    """Score-based primary metric selection — skips binary/near-binary and ordinal/temporal columns."""
     if not metric_cols:
         return None
-    candidates = [c for c in metric_cols if c != time_col]
+    candidates = [
+        c for c in metric_cols if c != time_col and not _is_ordinal_temporal_col(c)
+    ]
+    if not candidates:
+        candidates = [c for c in metric_cols if c != time_col]
     if not candidates:
         return None
     non_binary = []
@@ -866,7 +893,12 @@ def build_chart_plan(df: pd.DataFrame) -> Dict[str, Any]:
                     metric_cols = numeric_cols.copy()
         bar_source_df = analysis_df
 
-    primary_metric = _choose_primary_metric(analysis_df, metric_cols, time_col)
+    _non_ordinal_metrics = [c for c in metric_cols if not _is_ordinal_temporal_col(c)]
+    primary_metric = (
+        _choose_primary_metric(analysis_df, _non_ordinal_metrics, time_col)
+        if _non_ordinal_metrics
+        else None
+    )
     categorical_col = (
         long_cat
         if long_cat
